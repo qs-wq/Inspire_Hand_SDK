@@ -1,0 +1,74 @@
+# ===========================================================================
+# serial_control .gitignore
+# 说明：本仓库是单一 colcon 工作区（根目录），src/ 下为各包：
+#       inspire_serial_core（裸库）、driver、interfaces。统一在此忽略构建产物。
+# ===========================================================================
+
+# --- ROS2 / colcon 工作区产物（任意层级的 build/ install/ log/）---
+build/
+install/
+log/
+logs/
+
+# --- CMake 缓存与产物 ---
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+compile_commands.json
+*.o
+*.obj
+*.a
+*.so
+*.so.*
+*.lo
+*.la
+*.d
+
+# --- 可执行产物（无扩展名的已编译节点）---
+/src/serial_hand_control_node
+serial_hand_control_node
+inspire_control_node
+
+# --- 运行时日志 ---
+*.log
+*.log.*
+
+# --- 大文件 / 归档（源码不应携带二进制发布包）---
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.7z
+*.docx
+*.xlsx
+
+# --- 办公软件临时锁文件 ---
+.~lock.*#
+~$*
+
+# --- 编辑器 / IDE ---
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# --- Python（rosidl 生成、虚拟环境等）---
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# --- 系统文件 ---
+.DS_Store
+Thumbs.db
+
+# ===========================================================================
+# 注意：
+# 1) .cursor/rules/ 等规则文件需要入库，故不忽略整个 .cursor/。
+# 2) docs/ 下的 .md 文档需入库；其中的 .docx 二进制手册与锁文件被忽略
+#    （.doc/.pdf 厂商手册默认入库，如不需要可自行加入忽略）。
+# 3) 包导出模板 src/inspire_serial_core/cmake/*.cmake.in 为源文件，必须入库。
+# ===========================================================================

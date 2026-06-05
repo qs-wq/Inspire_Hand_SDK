@@ -1,0 +1,250 @@
+# ROS2设备节点配置文件
+# 一个设备对应一个节点，每个节点可以同时包含多个话题和服务
+
+device_nodes:
+  # 左手设备节点
+  - device: hand_left
+    update_rate: 50  # 定时器更新频率（Hz），用于话题的定时读取和发布
+    
+    # 话题配置（定时器循环，订阅命令并发布状态）
+    topics:
+      # 角度控制话题
+      - name: angle_control
+        registers:
+          write: ["angleSet"]      # 写入寄存器
+          read: ["angleAct"]       # 读取寄存器
+        command_topic: "/hand_left/angle_set"      # 命令话题
+        state_topic: "/hand_left/angle_actual"     # 状态话题
+      
+      # 力控制话题
+      - name: force_control
+        registers:
+          write: ["forceSet"]
+          read: ["forceAct"]
+        command_topic: "/hand_left/force_set"
+        state_topic: "/hand_left/force_actual"
+
+      # 速度控制话题
+      - name: speed_control
+        registers:
+          write: ["speedSet"]
+        command_topic: "/hand_left/speed_set"
+
+      # 电流控制话题
+      - name: current_control
+        registers:
+          write: ["currentSet"]
+          read: ["currentAct"]
+        command_topic: "/hand_left/current_set"
+        state_topic: "/hand_left/current_actual"
+      
+      # 触觉数据话题
+      - name: touch_control
+        registers:
+          read: ["touchAct"]      # 触觉数据寄存器（特殊处理）
+        state_topic: "/hand_left/touch_data"     # 触觉数据话题
+        touch_version: 1          # 触觉数据版本号（可选， 电容式：1，压阻式：2， 2暂未适配）
+    
+    # 服务配置（回调式操作，不参与定时器循环）
+    services:
+
+      # 角度设置服务
+      - register_name: "angleSet"
+        set_service_name: "/hand_left/set_angle"
+        is_write_register: true
+
+      # ID设置服务
+      - register_name: "id"
+        set_service_name: "/hand_left/set_id"
+        is_write_register: true
+
+      # 波特率设置服务
+      - register_name: "baudRate"
+        set_service_name: "/hand_left/set_baudRate"
+        is_write_register: true
+
+      # 清除错误设置服务
+      - register_name: "clearError"
+        set_service_name: "/hand_left/set_clearError"
+        is_write_register: true
+    
+      # 恢复出厂参数设置服务
+      - register_name: "resetPara"
+        set_service_name: "/hand_left/set_resetPara"
+        is_write_register: true
+
+      # 力传感器校准设置服务
+      - register_name: "gestureForceClb"
+        set_service_name: "/hand_left/set_gestureForceClb"
+        is_write_register: true
+
+      # 默认速度设置服务
+      - register_name: "defaultSpeedSet"
+        set_service_name: "/hand_left/set_defaultSpeed"
+        is_write_register: true
+
+      # 默认力保护设置服务
+      - register_name: "defaultForceSet"
+        set_service_name: "/hand_left/set_defaultForceSet"
+        is_write_register: true
+
+       # 控制模式设置服务
+      - register_name: "mode"
+        set_service_name: "/hand_left/set_mode"
+        is_write_register: true
+
+       # 暂停设置服务
+      - register_name: "pause"
+        set_service_name: "/hand_left/set_pause"
+        is_write_register: true
+
+       # 急停设置服务
+      - register_name: "stop"
+        set_service_name: "/hand_left/set_stop"
+        is_write_register: true
+        
+       # 动作序列设置服务
+      - register_name: "actionSeqIndex"
+        set_service_name: "/hand_left/set_actionSeqIndex"
+        is_write_register: true
+
+       # 动作库设置服务
+      - register_name: "actionLibraryIndex"
+        set_service_name: "/hand_left/set_actionLibraryIndex"
+        is_write_register: true
+
+      # 获取故障码服务
+      - register_name: "errorCode"
+        get_service_name: "/hand_left/get_errorCode"
+        is_write_register: false
+
+      # 获取设备运行状态服务
+      - register_name: "status"
+        get_service_name: "/hand_left/get_status"
+        is_write_register: false
+
+      # 获取电缸温度服务
+      - register_name: "temp"
+        get_service_name: "/hand_left/get_temp"
+        is_write_register: false
+  
+  # 右手设备节点
+  - device: hand_right
+    update_rate: 50  # 定时器更新频率（Hz），用于话题的定时读取和发布
+    
+    # 话题配置（定时器循环，订阅命令并发布状态）
+    topics:
+      # 角度控制话题
+      - name: angle_control
+        registers:
+          write: ["angleSet"]      # 写入寄存器
+          read: ["angleAct"]       # 读取寄存器
+        command_topic: "/hand_right/angle_set"      # 命令话题
+        state_topic: "/hand_right/angle_actual"     # 状态话题
+      
+      # 力控制话题
+      - name: force_control
+        registers:
+          write: ["forceSet"]
+          read: ["forceAct"]
+        command_topic: "/hand_right/force_set"
+        state_topic: "/hand_right/force_actual"
+
+      # 速度控制话题
+      - name: speed_control
+        registers:
+          write: ["speedSet"]
+        command_topic: "/hand_right/speed_set"
+
+      # 电流控制话题
+      - name: current_control
+        registers:
+          write: ["currentSet"]
+          read: ["currentAct"]
+        command_topic: "/hand_right/current_set"
+        state_topic: "/hand_right/current_actual"
+      
+      # 触觉数据话题
+      - name: touch_control
+        registers:
+          read: ["touchAct"]      # 触觉数据寄存器（特殊处理）
+        state_topic: "/hand_right/touch_data"     # 触觉数据话题
+        touch_version: 1          # 触觉数据版本号（可选， 电容式：1，压阻式：2， 2暂未适配）
+    
+    # 服务配置（回调式操作，不参与定时器循环）
+    services:
+
+      # ID设置服务
+      - register_name: "id"
+        set_service_name: "/hand_right/set_id"
+        is_write_register: true
+
+      # 波特率设置服务
+      - register_name: "baudRate"
+        set_service_name: "/hand_right/set_baudRate"
+        is_write_register: true
+
+      # 清除错误设置服务
+      - register_name: "clearError"
+        set_service_name: "/hand_right/set_clearError"
+        is_write_register: true
+    
+      # 恢复出厂参数设置服务
+      - register_name: "resetPara"
+        set_service_name: "/hand_right/set_resetPara"
+        is_write_register: true
+
+      # 力传感器校准设置服务
+      - register_name: "gestureForceClb"
+        set_service_name: "/hand_right/set_gestureForceClb"
+        is_write_register: true
+
+      # 默认速度设置服务
+      - register_name: "defaultSpeedSet"
+        set_service_name: "/hand_right/set_defaultSpeed"
+        is_write_register: true
+
+      # 默认力保护设置服务
+      - register_name: "defaultForceSet"
+        set_service_name: "/hand_right/set_defaultForceSet"
+        is_write_register: true
+
+       # 控制模式设置服务
+      - register_name: "mode"
+        set_service_name: "/hand_right/set_mode"
+        is_write_register: true
+
+       # 暂停设置服务
+      - register_name: "pause"
+        set_service_name: "/hand_right/set_pause"
+        is_write_register: true
+
+       # 急停设置服务
+      - register_name: "stop"
+        set_service_name: "/hand_right/set_stop"
+        is_write_register: true
+        
+       # 动作序列设置服务
+      - register_name: "actionSeqIndex"
+        set_service_name: "/hand_right/set_actionSeqIndex"
+        is_write_register: true
+
+       # 动作库设置服务
+      - register_name: "actionLibraryIndex"
+        set_service_name: "/hand_right/set_actionLibraryIndex"
+        is_write_register: true
+
+      # 获取故障码服务
+      - register_name: "errorCode"
+        get_service_name: "/hand_right/get_errorCode"
+        is_write_register: false
+
+      # 获取设备运行状态服务
+      - register_name: "status"
+        get_service_name: "/hand_right/get_status"
+        is_write_register: false
+
+      # 获取电缸温度服务
+      - register_name: "temp"
+        get_service_name: "/hand_right/get_temp"
+        is_write_register: false

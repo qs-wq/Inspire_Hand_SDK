@@ -1,0 +1,20 @@
+# 设备协议配置文件
+protocol:
+  type: RH5DG2_485  # 485协议
+
+# 设备配置
+devices:
+  - name: hand_left      # 设备名称
+    port: /dev/ttyUSB0   # 串口端口
+    baudrate: 115200     # 波特率
+    Hand_ID: 1           # 设备ID（Hand_ID）
+
+# 日志配置
+logging:
+  level: DEBUG  # 日志级别：TRACE/DEBUG/INFO/WARN/ERROR/CRITICAL/OFF
+  file: logs/hand_control.log  # 日志文件路径
+  console: true  # 是否输出到控制台（默认true）
+  file_enable: true  # 是否输出到文件（默认true）
+  max_file_size_mb: 10  # 单个日志文件最大大小（MB，默认10MB）
+  max_files: 5  # 保留的日志文件数量（默认5个，超过后自动删除最旧的）
+

@@ -1,0 +1,33 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>inspire_control_ros2</name>
+  <version>1.0.0</version>
+  <description>Inspire 灵巧手与 EG-5CD1 夹爪 ROS2 控制节点：rh5dg2_interfaces、rh56f1_interfaces、eg5cd1_interfaces。</description>
+  <maintainer email="your_email@example.com">Your Name</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>rclcpp</depend>
+  <depend>std_msgs</depend>
+  <depend>rh5dg2_interfaces</depend>
+  <depend>rh56f1_interfaces</depend>
+  <depend>eg5cd1_interfaces</depend>
+  <depend>inspire_serial_core</depend>
+
+  <build_depend>yaml-cpp</build_depend>
+  <build_depend>Boost</build_depend>
+  <build_depend>spdlog</build_depend>
+
+  <exec_depend>yaml-cpp</exec_depend>
+  <exec_depend>Boost</exec_depend>
+  <exec_depend>spdlog</exec_depend>
+
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

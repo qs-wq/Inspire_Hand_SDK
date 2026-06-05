@@ -1,0 +1,19 @@
+# 因时 EG-5CD1 电动夹爪 RS485 示例（见 src/document/夹爪485寄存器规则.md）
+# 使用方式：启动节点时 --device-config 指向本文件，且 ros2_controller 使用 ros2_controller_eg5cd1_example.yaml
+
+protocol:
+  type: EG5CD1_485
+
+devices:
+  - name: gripper_main
+    port: /dev/ttyUSB0
+    baudrate: 115200
+    Hand_ID: 1
+
+logging:
+  level: INFO
+  file: logs/eg5cd1_gripper.log
+  console: true
+  file_enable: true
+  max_file_size_mb: 10
+  max_files: 5

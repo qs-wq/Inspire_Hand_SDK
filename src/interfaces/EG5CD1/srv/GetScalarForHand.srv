@@ -1,0 +1,6 @@
+string query
+int32 hand_id
+---
+int32 value
+
+string message

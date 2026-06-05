@@ -1,0 +1,82 @@
+# EG-5CD1 夹爪 ROS2 节点示例（interfaces_profile 由 device_protocol 的 protocol.type 推导为 EG5CD1）
+
+device_nodes:
+  - device: gripper_main
+    update_rate: 50
+    publish_header:
+      frame_id: "gripper_link"
+
+    topics:
+      - name: gripper_state
+        registers:
+          read: ["gripperStatusBlock"]
+        state_topic: "/gripper/state"
+
+      - name: open_len_set
+        registers:
+          write: ["openLenSet"]
+        command_topic: "/gripper/open_len_set"
+
+      - name: speed_set
+        registers:
+          write: ["speedSet"]
+        command_topic: "/gripper/speed_set"
+
+      - name: force_set
+        registers:
+          write: ["forceSet"]
+        command_topic: "/gripper/force_set"
+
+      - name: catch_mode_set
+        registers:
+          write: ["catchModeSet"]
+        command_topic: "/gripper/catch_mode_set"
+
+    services:
+      - register_name: "clearError"
+        set_service_name: "/gripper/clear_error"
+        is_write_register: true
+
+      - register_name: "save"
+        set_service_name: "/gripper/save_params"
+        is_write_register: true
+
+      - register_name: "defaultPar"
+        set_service_name: "/gripper/restore_default"
+        is_write_register: true
+
+      - register_name: "stop"
+        set_service_name: "/gripper/stop"
+        is_write_register: true
+
+      - register_name: "catchModeClose"
+        set_service_name: "/gripper/touch_close"
+        is_write_register: true
+
+      - register_name: "catchModeOpen"
+        set_service_name: "/gripper/touch_open"
+        is_write_register: true
+
+      - register_name: "id"
+        set_service_name: "/gripper/set_id"
+        is_write_register: true
+
+      - register_name: "reduRatio"
+        set_service_name: "/gripper/set_baud_index"
+        is_write_register: true
+
+      - register_name: "catchModeSet"
+        set_service_name: "/gripper/set_mode_service"
+        is_write_register: true
+
+      - register_name: "errorCode"
+        get_service_name: "/gripper/get_error"
+        is_write_register: false
+
+      - register_name: "temp"
+        get_service_name: "/gripper/get_temp"
+        is_write_register: false
+
+      - register_name: "status"
+        get_service_name: "/gripper/get_status"
+        is_write_register: false
