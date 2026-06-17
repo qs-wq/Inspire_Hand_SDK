@@ -93,3 +93,19 @@ if(INSPIRE_SERIAL_CORE_BUILD_EXAMPLES)
     add_executable(serial_hand_control_node examples/main.cpp)
     target_link_libraries(serial_hand_control_node PRIVATE inspire_serial_core)
 endif()
+
+# ---------------------------------------------------------------------------
+# 单元测试（gtest）：覆盖 RingBuffer 与各 485 协议纯逻辑。
+# 默认开启；若环境无 GTest 则自动跳过，不影响主库构建。
+# 运行：`ctest` 或 `colcon test`。
+# ---------------------------------------------------------------------------
+option(INSPIRE_SERIAL_CORE_BUILD_TESTS "Build unit tests" ON)
+if(INSPIRE_SERIAL_CORE_BUILD_TESTS)
+    find_package(GTest QUIET)
+    if(GTest_FOUND)
+        include(CTest)  # 提供 DartConfiguration.tcl，兼容 colcon test
+        add_subdirectory(tests)
+    else()
+        message(STATUS "未找到 GTest，跳过 inspire_serial_core 单元测试构建")
+    endif()
+endif()

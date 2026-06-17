@@ -97,7 +97,7 @@ void RH56F1InterfaceAdapter::wireTopics() {
         if (!tc.command_topic.empty() && !tc.write_registers.empty()) {
             const std::string reg = tc.write_registers[0];
             if (tc.name == "angle_control") {
-                maps_.subscribers[tc.command_topic] = node->create_subscription<rh56f1_interfaces::msg::SetAngle1>(
+                maps_.subscribers[tc.command_topic] = this->makeGroupedSubscription<rh56f1_interfaces::msg::SetAngle1>(
                     tc.command_topic, 10,
                     [this, reg, hid](rh56f1_interfaces::msg::SetAngle1::SharedPtr msg) {
                         if (!rosIncomingHandIdTargetsThisNode(backend_, msg->hand_id)) {
@@ -110,7 +110,7 @@ void RH56F1InterfaceAdapter::wireTopics() {
                     });
                 logger->info("[{}] Subscriber(SetAngle1): {}", backend_.ioNodeName(), tc.command_topic);
             } else if (tc.name == "force_control") {
-                maps_.subscribers[tc.command_topic] = node->create_subscription<rh56f1_interfaces::msg::SetForce1>(
+                maps_.subscribers[tc.command_topic] = this->makeGroupedSubscription<rh56f1_interfaces::msg::SetForce1>(
                     tc.command_topic, 10,
                     [this, reg, hid](rh56f1_interfaces::msg::SetForce1::SharedPtr msg) {
                         if (!rosIncomingHandIdTargetsThisNode(backend_, msg->hand_id)) {
@@ -123,7 +123,7 @@ void RH56F1InterfaceAdapter::wireTopics() {
                     });
                 logger->info("[{}] Subscriber(SetForce1): {}", backend_.ioNodeName(), tc.command_topic);
             } else if (tc.name == "speed_control") {
-                maps_.subscribers[tc.command_topic] = node->create_subscription<rh56f1_interfaces::msg::SetSpeed1>(
+                maps_.subscribers[tc.command_topic] = this->makeGroupedSubscription<rh56f1_interfaces::msg::SetSpeed1>(
                     tc.command_topic, 10,
                     [this, reg, hid](rh56f1_interfaces::msg::SetSpeed1::SharedPtr msg) {
                         if (!rosIncomingHandIdTargetsThisNode(backend_, msg->hand_id)) {
@@ -136,7 +136,7 @@ void RH56F1InterfaceAdapter::wireTopics() {
                     });
                 logger->info("[{}] Subscriber(SetSpeed1): {}", backend_.ioNodeName(), tc.command_topic);
             } else if (tc.name == "current_control") {
-                maps_.subscribers[tc.command_topic] = node->create_subscription<rh56f1_interfaces::msg::SetCurrent1>(
+                maps_.subscribers[tc.command_topic] = this->makeGroupedSubscription<rh56f1_interfaces::msg::SetCurrent1>(
                     tc.command_topic, 10,
                     [this, reg, hid](rh56f1_interfaces::msg::SetCurrent1::SharedPtr msg) {
                         if (!rosIncomingHandIdTargetsThisNode(backend_, msg->hand_id)) {
@@ -238,7 +238,7 @@ void RH56F1InterfaceAdapter::wireServices() {
             const std::string& reg = sc.register_name;
 
             if (reg == "angleSet") {
-                maps_.services[sc.set_service_name] = node->create_service<rh56f1_interfaces::srv::Setangle>(
+                maps_.services[sc.set_service_name] = this->makeGroupedService<rh56f1_interfaces::srv::Setangle>(
                     sc.set_service_name,
                     [this, reg](
                         const rh56f1_interfaces::srv::Setangle::Request::SharedPtr req,
@@ -250,7 +250,6 @@ void RH56F1InterfaceAdapter::wireServices() {
                                 backend_.ioNodeName(), req->hand_id, backend_.ioHandId());
                             return;
                         }
-                        backend_.ioPauseTimer(5);
                         std::vector<int> vals(req->joint_values.begin(), req->joint_values.end());
                         const IoError e = backend_.ioWriteRegister(reg, vals);
                         res->accepted = isOk(e);
@@ -258,7 +257,7 @@ void RH56F1InterfaceAdapter::wireServices() {
                     });
                 logger->info("[{}] Service(SetAngle): {}", backend_.ioNodeName(), sc.set_service_name);
             } else if (reg == "id") {
-                maps_.services[sc.set_service_name] = node->create_service<rh56f1_interfaces::srv::Setid>(
+                maps_.services[sc.set_service_name] = this->makeGroupedService<rh56f1_interfaces::srv::Setid>(
                     sc.set_service_name,
                     [this](
                         const rh56f1_interfaces::srv::Setid::Request::SharedPtr req,
@@ -270,14 +269,13 @@ void RH56F1InterfaceAdapter::wireServices() {
                                 backend_.ioNodeName(), req->hand_id, backend_.ioHandId());
                             return;
                         }
-                        backend_.ioPauseTimer(5);
                         const IoError e = backend_.ioWriteRegister("id", {static_cast<int>(req->device_id)});
                         res->accepted = isOk(e);
                         res->message = toString(e);
                     });
                 logger->info("[{}] Service(Setid): {}", backend_.ioNodeName(), sc.set_service_name);
             } else if (reg == "mode") {
-                maps_.services[sc.set_service_name] = node->create_service<rh56f1_interfaces::srv::Setmode>(
+                maps_.services[sc.set_service_name] = this->makeGroupedService<rh56f1_interfaces::srv::Setmode>(
                     sc.set_service_name,
                     [this](
                         const rh56f1_interfaces::srv::Setmode::Request::SharedPtr req,
@@ -289,7 +287,6 @@ void RH56F1InterfaceAdapter::wireServices() {
                                 backend_.ioNodeName(), req->hand_id, backend_.ioHandId());
                             return;
                         }
-                        backend_.ioPauseTimer(5);
                         std::vector<int> vals(req->joint_values.begin(), req->joint_values.end());
                         const IoError e = backend_.ioWriteRegister("mode", vals);
                         res->accepted = isOk(e);
@@ -297,7 +294,7 @@ void RH56F1InterfaceAdapter::wireServices() {
                     });
                 logger->info("[{}] Service(SetMode): {}", backend_.ioNodeName(), sc.set_service_name);
             } else if (reg == "forceSet") {
-                maps_.services[sc.set_service_name] = node->create_service<rh56f1_interfaces::srv::Setforce>(
+                maps_.services[sc.set_service_name] = this->makeGroupedService<rh56f1_interfaces::srv::Setforce>(
                     sc.set_service_name,
                     [this](
                         const rh56f1_interfaces::srv::Setforce::Request::SharedPtr req,
@@ -309,7 +306,6 @@ void RH56F1InterfaceAdapter::wireServices() {
                                 backend_.ioNodeName(), req->hand_id, backend_.ioHandId());
                             return;
                         }
-                        backend_.ioPauseTimer(5);
                         std::vector<int> vals(req->joint_values.begin(), req->joint_values.end());
                         const IoError e = backend_.ioWriteRegister("forceSet", vals);
                         res->accepted = isOk(e);
@@ -317,7 +313,7 @@ void RH56F1InterfaceAdapter::wireServices() {
                     });
                 logger->info("[{}] Service(SetForce): {}", backend_.ioNodeName(), sc.set_service_name);
             } else if (reg == "speedSet") {
-                maps_.services[sc.set_service_name] = node->create_service<rh56f1_interfaces::srv::Setspeed>(
+                maps_.services[sc.set_service_name] = this->makeGroupedService<rh56f1_interfaces::srv::Setspeed>(
                     sc.set_service_name,
                     [this](
                         const rh56f1_interfaces::srv::Setspeed::Request::SharedPtr req,
@@ -329,7 +325,6 @@ void RH56F1InterfaceAdapter::wireServices() {
                                 backend_.ioNodeName(), req->hand_id, backend_.ioHandId());
                             return;
                         }
-                        backend_.ioPauseTimer(5);
                         std::vector<int> vals(req->joint_values.begin(), req->joint_values.end());
                         const IoError e = backend_.ioWriteRegister("speedSet", vals);
                         res->accepted = isOk(e);
@@ -337,7 +332,7 @@ void RH56F1InterfaceAdapter::wireServices() {
                     });
                 logger->info("[{}] Service(SetSpeed): {}", backend_.ioNodeName(), sc.set_service_name);
             } else if (reg == "baudRate") {
-                maps_.services[sc.set_service_name] = node->create_service<rh56f1_interfaces::srv::Setbaudrate>(
+                maps_.services[sc.set_service_name] = this->makeGroupedService<rh56f1_interfaces::srv::Setbaudrate>(
                     sc.set_service_name,
                     [this, reg](
                         const rh56f1_interfaces::srv::Setbaudrate::Request::SharedPtr req,
@@ -349,14 +344,13 @@ void RH56F1InterfaceAdapter::wireServices() {
                                 backend_.ioNodeName(), req->hand_id, backend_.ioHandId());
                             return;
                         }
-                        backend_.ioPauseTimer(5);
                         const IoError e = backend_.ioWriteRegister(reg, {static_cast<int>(req->baudrate)});
                         res->accepted = isOk(e);
                         res->message = toString(e);
                     });
                 logger->info("[{}] Service(Setbaudrate): {}", backend_.ioNodeName(), sc.set_service_name);
             } else if (reg == "clearError") {
-                maps_.services[sc.set_service_name] = node->create_service<rh56f1_interfaces::srv::Setclearerror>(
+                maps_.services[sc.set_service_name] = this->makeGroupedService<rh56f1_interfaces::srv::Setclearerror>(
                     sc.set_service_name,
                     [this, reg](
                         const rh56f1_interfaces::srv::Setclearerror::Request::SharedPtr req,
@@ -368,14 +362,13 @@ void RH56F1InterfaceAdapter::wireServices() {
                                 backend_.ioNodeName(), req->hand_id, backend_.ioHandId());
                             return;
                         }
-                        backend_.ioPauseTimer(5);
                         const IoError e = backend_.ioWriteRegister(reg, {static_cast<int>(req->clear_code)});
                         res->accepted = isOk(e);
                         res->message = toString(e);
                     });
                 logger->info("[{}] Service(Setclearerror): {}", backend_.ioNodeName(), sc.set_service_name);
             } else if (reg == "resetPara") {
-                maps_.services[sc.set_service_name] = node->create_service<rh56f1_interfaces::srv::Setresetpara>(
+                maps_.services[sc.set_service_name] = this->makeGroupedService<rh56f1_interfaces::srv::Setresetpara>(
                     sc.set_service_name,
                     [this, reg](
                         const rh56f1_interfaces::srv::Setresetpara::Request::SharedPtr req,
@@ -387,14 +380,13 @@ void RH56F1InterfaceAdapter::wireServices() {
                                 backend_.ioNodeName(), req->hand_id, backend_.ioHandId());
                             return;
                         }
-                        backend_.ioPauseTimer(5);
                         const IoError e = backend_.ioWriteRegister(reg, {static_cast<int>(req->confirm)});
                         res->accepted = isOk(e);
                         res->message = toString(e);
                     });
                 logger->info("[{}] Service(Setresetpara): {}", backend_.ioNodeName(), sc.set_service_name);
             } else if (reg == "gestureForceClb") {
-                maps_.services[sc.set_service_name] = node->create_service<rh56f1_interfaces::srv::Setgestureforceclb>(
+                maps_.services[sc.set_service_name] = this->makeGroupedService<rh56f1_interfaces::srv::Setgestureforceclb>(
                     sc.set_service_name,
                     [this, reg](
                         const rh56f1_interfaces::srv::Setgestureforceclb::Request::SharedPtr req,
@@ -406,7 +398,6 @@ void RH56F1InterfaceAdapter::wireServices() {
                                 backend_.ioNodeName(), req->hand_id, backend_.ioHandId());
                             return;
                         }
-                        backend_.ioPauseTimer(5);
                         std::vector<int> vals(req->calibration_values.begin(), req->calibration_values.end());
                         const IoError e = backend_.ioWriteRegister(reg, vals);
                         res->accepted = isOk(e);
@@ -414,7 +405,7 @@ void RH56F1InterfaceAdapter::wireServices() {
                     });
                 logger->info("[{}] Service(Setgestureforceclb): {}", backend_.ioNodeName(), sc.set_service_name);
             } else if (reg == "defaultSpeedSet") {
-                maps_.services[sc.set_service_name] = node->create_service<rh56f1_interfaces::srv::Setdefaultspeed>(
+                maps_.services[sc.set_service_name] = this->makeGroupedService<rh56f1_interfaces::srv::Setdefaultspeed>(
                     sc.set_service_name,
                     [this, reg](
                         const rh56f1_interfaces::srv::Setdefaultspeed::Request::SharedPtr req,
@@ -426,7 +417,6 @@ void RH56F1InterfaceAdapter::wireServices() {
                                 backend_.ioNodeName(), req->hand_id, backend_.ioHandId());
                             return;
                         }
-                        backend_.ioPauseTimer(5);
                         std::vector<int> vals(req->joint_values.begin(), req->joint_values.end());
                         const IoError e = backend_.ioWriteRegister(reg, vals);
                         res->accepted = isOk(e);
@@ -434,7 +424,7 @@ void RH56F1InterfaceAdapter::wireServices() {
                     });
                 logger->info("[{}] Service(Setdefaultspeed): {}", backend_.ioNodeName(), sc.set_service_name);
             } else if (reg == "defaultForceSet") {
-                maps_.services[sc.set_service_name] = node->create_service<rh56f1_interfaces::srv::Setdefaultforceset>(
+                maps_.services[sc.set_service_name] = this->makeGroupedService<rh56f1_interfaces::srv::Setdefaultforceset>(
                     sc.set_service_name,
                     [this, reg](
                         const rh56f1_interfaces::srv::Setdefaultforceset::Request::SharedPtr req,
@@ -446,7 +436,6 @@ void RH56F1InterfaceAdapter::wireServices() {
                                 backend_.ioNodeName(), req->hand_id, backend_.ioHandId());
                             return;
                         }
-                        backend_.ioPauseTimer(5);
                         std::vector<int> vals(req->joint_values.begin(), req->joint_values.end());
                         const IoError e = backend_.ioWriteRegister(reg, vals);
                         res->accepted = isOk(e);
@@ -454,7 +443,7 @@ void RH56F1InterfaceAdapter::wireServices() {
                     });
                 logger->info("[{}] Service(Setdefaultforceset): {}", backend_.ioNodeName(), sc.set_service_name);
             } else if (reg == "pause") {
-                maps_.services[sc.set_service_name] = node->create_service<rh56f1_interfaces::srv::Setpause>(
+                maps_.services[sc.set_service_name] = this->makeGroupedService<rh56f1_interfaces::srv::Setpause>(
                     sc.set_service_name,
                     [this, reg](
                         const rh56f1_interfaces::srv::Setpause::Request::SharedPtr req,
@@ -466,14 +455,13 @@ void RH56F1InterfaceAdapter::wireServices() {
                                 backend_.ioNodeName(), req->hand_id, backend_.ioHandId());
                             return;
                         }
-                        backend_.ioPauseTimer(5);
                         const IoError e = backend_.ioWriteRegister(reg, {static_cast<int>(req->pause_flag)});
                         res->accepted = isOk(e);
                         res->message = toString(e);
                     });
                 logger->info("[{}] Service(Setpause): {}", backend_.ioNodeName(), sc.set_service_name);
             } else if (reg == "stop") {
-                maps_.services[sc.set_service_name] = node->create_service<rh56f1_interfaces::srv::Setstop>(
+                maps_.services[sc.set_service_name] = this->makeGroupedService<rh56f1_interfaces::srv::Setstop>(
                     sc.set_service_name,
                     [this, reg](
                         const rh56f1_interfaces::srv::Setstop::Request::SharedPtr req,
@@ -485,14 +473,13 @@ void RH56F1InterfaceAdapter::wireServices() {
                                 backend_.ioNodeName(), req->hand_id, backend_.ioHandId());
                             return;
                         }
-                        backend_.ioPauseTimer(5);
                         const IoError e = backend_.ioWriteRegister(reg, {static_cast<int>(req->stop_flag)});
                         res->accepted = isOk(e);
                         res->message = toString(e);
                     });
                 logger->info("[{}] Service(Setstop): {}", backend_.ioNodeName(), sc.set_service_name);
             } else if (reg == "actionSeqIndex") {
-                maps_.services[sc.set_service_name] = node->create_service<rh56f1_interfaces::srv::Setactionseqindex>(
+                maps_.services[sc.set_service_name] = this->makeGroupedService<rh56f1_interfaces::srv::Setactionseqindex>(
                     sc.set_service_name,
                     [this, reg](
                         const rh56f1_interfaces::srv::Setactionseqindex::Request::SharedPtr req,
@@ -504,14 +491,13 @@ void RH56F1InterfaceAdapter::wireServices() {
                                 backend_.ioNodeName(), req->hand_id, backend_.ioHandId());
                             return;
                         }
-                        backend_.ioPauseTimer(5);
                         const IoError e = backend_.ioWriteRegister(reg, {static_cast<int>(req->index)});
                         res->accepted = isOk(e);
                         res->message = toString(e);
                     });
                 logger->info("[{}] Service(Setactionseqindex): {}", backend_.ioNodeName(), sc.set_service_name);
             } else if (reg == "actionLibraryIndex") {
-                maps_.services[sc.set_service_name] = node->create_service<rh56f1_interfaces::srv::Setactionlibraryindex>(
+                maps_.services[sc.set_service_name] = this->makeGroupedService<rh56f1_interfaces::srv::Setactionlibraryindex>(
                     sc.set_service_name,
                     [this, reg](
                         const rh56f1_interfaces::srv::Setactionlibraryindex::Request::SharedPtr req,
@@ -523,7 +509,6 @@ void RH56F1InterfaceAdapter::wireServices() {
                                 backend_.ioNodeName(), req->hand_id, backend_.ioHandId());
                             return;
                         }
-                        backend_.ioPauseTimer(5);
                         const IoError e = backend_.ioWriteRegister(reg, {static_cast<int>(req->index)});
                         res->accepted = isOk(e);
                         res->message = toString(e);
@@ -539,7 +524,7 @@ void RH56F1InterfaceAdapter::wireServices() {
             const std::string& reg = sc.register_name;
 
             if (reg == "errorCode") {
-                maps_.services[sc.get_service_name] = node->create_service<rh56f1_interfaces::srv::Geterror>(
+                maps_.services[sc.get_service_name] = this->makeGroupedService<rh56f1_interfaces::srv::Geterror>(
                     sc.get_service_name,
                     [this](
                         const rh56f1_interfaces::srv::Geterror::Request::SharedPtr req,
@@ -554,7 +539,6 @@ void RH56F1InterfaceAdapter::wireServices() {
                             res->message = "rejected: hand_id mismatch";
                             return;
                         }
-                        backend_.ioPauseTimer(5);
                         auto rr = backend_.ioReadRegister("errorCode");
                         const bool ok = rr.ok();
                         const auto& vals = rr.values;
@@ -567,7 +551,7 @@ void RH56F1InterfaceAdapter::wireServices() {
                     });
                 logger->info("[{}] Service(GetError): {}", backend_.ioNodeName(), sc.get_service_name);
             } else if (reg == "temp") {
-                maps_.services[sc.get_service_name] = node->create_service<rh56f1_interfaces::srv::Gettemp>(
+                maps_.services[sc.get_service_name] = this->makeGroupedService<rh56f1_interfaces::srv::Gettemp>(
                     sc.get_service_name,
                     [this](
                         const rh56f1_interfaces::srv::Gettemp::Request::SharedPtr req,
@@ -582,7 +566,6 @@ void RH56F1InterfaceAdapter::wireServices() {
                             res->message = "rejected: hand_id mismatch";
                             return;
                         }
-                        backend_.ioPauseTimer(5);
                         auto rr = backend_.ioReadRegister("temp");
                         const bool ok = rr.ok();
                         const auto& vals = rr.values;
@@ -595,7 +578,7 @@ void RH56F1InterfaceAdapter::wireServices() {
                     });
                 logger->info("[{}] Service(GetTemp): {}", backend_.ioNodeName(), sc.get_service_name);
             } else if (reg == "status") {
-                maps_.services[sc.get_service_name] = node->create_service<rh56f1_interfaces::srv::Getstatus>(
+                maps_.services[sc.get_service_name] = this->makeGroupedService<rh56f1_interfaces::srv::Getstatus>(
                     sc.get_service_name,
                     [this](
                         const rh56f1_interfaces::srv::Getstatus::Request::SharedPtr req,
@@ -610,7 +593,6 @@ void RH56F1InterfaceAdapter::wireServices() {
                             res->message = "rejected: hand_id mismatch";
                             return;
                         }
-                        backend_.ioPauseTimer(5);
                         auto rr = backend_.ioReadRegister("status");
                         const bool ok = rr.ok();
                         const auto& vals = rr.values;

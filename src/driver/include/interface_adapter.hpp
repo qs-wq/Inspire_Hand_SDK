@@ -51,6 +51,36 @@ public:
         int version) = 0;
 
 protected:
+    /**
+     * @brief 创建归入「服务回调组」的 Service（与定时器分组以实现并发）。
+     *
+     * 用法与 node->create_service<T>(name, callback) 完全一致，仅自动补上 QoS 与回调组，
+     * 因此适配器内可把 `node->create_service` 直接替换为 `this->makeGroupedService`。
+     */
+    template <typename ServiceT, typename CallbackT>
+    typename rclcpp::Service<ServiceT>::SharedPtr makeGroupedService(
+        const std::string& name, CallbackT&& callback) {
+        return backend_.ioNode()->template create_service<ServiceT>(
+            name,
+            std::forward<CallbackT>(callback),
+            rmw_qos_profile_services_default,
+            backend_.ioServiceCallbackGroup());
+    }
+
+    /**
+     * @brief 创建归入「服务回调组」的 Subscription（写入类回调，与定时读分组并发）。
+     *
+     * 用法与 node->create_subscription<Msg>(name, qos, callback) 一致，自动补上回调组。
+     */
+    template <typename MessageT, typename CallbackT>
+    typename rclcpp::Subscription<MessageT>::SharedPtr makeGroupedSubscription(
+        const std::string& name, const rclcpp::QoS& qos, CallbackT&& callback) {
+        rclcpp::SubscriptionOptions options;
+        options.callback_group = backend_.ioServiceCallbackGroup();
+        return backend_.ioNode()->template create_subscription<MessageT>(
+            name, qos, std::forward<CallbackT>(callback), options);
+    }
+
     IRegisterIoBackend& backend_;
     DeviceNodeConfig config_;
     RosEntityMaps maps_;

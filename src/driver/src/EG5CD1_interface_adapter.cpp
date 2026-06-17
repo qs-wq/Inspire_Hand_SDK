@@ -21,14 +21,12 @@
 
 namespace {
 
-/** 力控/触控组合写：步骤间隔 + 串口写耗时，暂停定时读避免与写应答交错 */
+/**
+ * 力控/触控组合写步骤间隔（毫秒）：写入相邻寄存器之间留一点间隔给夹爪处理。
+ * 该间隔在设备 worker 线程上执行（见 ioWriteSequence），不再阻塞 ROS 回调线程；
+ * 整组步骤由 worker 串行化，无需再用经验暂停时长来"躲开"定时读。
+ */
 constexpr int kCompositeStepMs = 3;
-constexpr int kPauseForceCompositeMs = 220;
-constexpr int kPauseTouchCompositeMs = 280;
-
-void sleep_composite_step() {
-    std::this_thread::sleep_for(std::chrono::milliseconds(kCompositeStepMs));
-}
 
 int clamp_speed(int32_t v) {
     if (v < 0) {
@@ -68,6 +66,18 @@ bool clamp_force_open(int32_t v, int& out) {
     return true;
 }
 
+/**
+ * 把组合写序列结果格式化为与历史一致的 message：
+ *   成功 -> "<最后一步寄存器>: ok"；失败 -> "<失败步寄存器>: <错误码>"。
+ */
+std::string sequence_message(const std::vector<WriteStep>& steps, const SequenceResult& r) {
+    if (steps.empty()) {
+        return toString(r.error);
+    }
+    const size_t idx = r.ok() ? (steps.size() - 1) : r.failed_step;
+    return steps[idx].reg + ": " + toString(r.error);
+}
+
 void stamp_header(std_msgs::msg::Header& h, rclcpp::Node* node, const std::string& frame_id) {
     h.stamp = node->now();
     h.frame_id = frame_id;
@@ -103,7 +113,7 @@ void EG5CD1InterfaceAdapter::wireTopics() {
             const std::string reg = tc.write_registers[0];
 
             if (tc.name == "open_len_set") {
-                maps_.subscribers[tc.command_topic] = node->create_subscription<eg5cd1_interfaces::msg::SetInt32>(
+                maps_.subscribers[tc.command_topic] = this->makeGroupedSubscription<eg5cd1_interfaces::msg::SetInt32>(
                     tc.command_topic,
                     10,
                     [this, reg, hid](eg5cd1_interfaces::msg::SetInt32::SharedPtr msg) {
@@ -116,7 +126,7 @@ void EG5CD1InterfaceAdapter::wireTopics() {
                     });
                 logger->info("[{}] Subscriber(SetInt32 open_len): {}", backend_.ioNodeName(), tc.command_topic);
             } else if (tc.name == "speed_set") {
-                maps_.subscribers[tc.command_topic] = node->create_subscription<eg5cd1_interfaces::msg::SetInt32>(
+                maps_.subscribers[tc.command_topic] = this->makeGroupedSubscription<eg5cd1_interfaces::msg::SetInt32>(
                     tc.command_topic,
                     10,
                     [this, reg, hid](eg5cd1_interfaces::msg::SetInt32::SharedPtr msg) {
@@ -129,7 +139,7 @@ void EG5CD1InterfaceAdapter::wireTopics() {
                     });
                 logger->info("[{}] Subscriber(SetInt32 speed): {}", backend_.ioNodeName(), tc.command_topic);
             } else if (tc.name == "force_set") {
-                maps_.subscribers[tc.command_topic] = node->create_subscription<eg5cd1_interfaces::msg::SetInt32>(
+                maps_.subscribers[tc.command_topic] = this->makeGroupedSubscription<eg5cd1_interfaces::msg::SetInt32>(
                     tc.command_topic,
                     10,
                     [this, reg, hid](eg5cd1_interfaces::msg::SetInt32::SharedPtr msg) {
@@ -142,7 +152,7 @@ void EG5CD1InterfaceAdapter::wireTopics() {
                     });
                 logger->info("[{}] Subscriber(SetInt32 force): {}", backend_.ioNodeName(), tc.command_topic);
             } else if (tc.name == "catch_mode_set") {
-                maps_.subscribers[tc.command_topic] = node->create_subscription<eg5cd1_interfaces::msg::SetInt32>(
+                maps_.subscribers[tc.command_topic] = this->makeGroupedSubscription<eg5cd1_interfaces::msg::SetInt32>(
                     tc.command_topic,
                     10,
                     [this, reg, hid](eg5cd1_interfaces::msg::SetInt32::SharedPtr msg) {
@@ -151,7 +161,6 @@ void EG5CD1InterfaceAdapter::wireTopics() {
                                 backend_.ioNodeName(), msg->hand_id, hid);
                             return;
                         }
-                        backend_.ioPauseTimer(5);
                         backend_.ioWriteRegister(reg, {static_cast<int>(msg->value)});
                     });
                 logger->info("[{}] Subscriber(SetInt32 catch_mode): {}", backend_.ioNodeName(), tc.command_topic);
@@ -212,7 +221,7 @@ void EG5CD1InterfaceAdapter::wireServices() {
             const std::string& reg = sc.register_name;
 
             if (is_trigger_register(reg)) {
-                maps_.services[sc.set_service_name] = node->create_service<eg5cd1_interfaces::srv::TriggerForHand>(
+                maps_.services[sc.set_service_name] = this->makeGroupedService<eg5cd1_interfaces::srv::TriggerForHand>(
                     sc.set_service_name,
                     [this, reg](
                         const eg5cd1_interfaces::srv::TriggerForHand::Request::SharedPtr req,
@@ -224,14 +233,13 @@ void EG5CD1InterfaceAdapter::wireServices() {
                                 backend_.ioNodeName(), reg, req->hand_id);
                             return;
                         }
-                        backend_.ioPauseTimer(5);
                         const IoError e = backend_.ioWriteRegister(reg, {1});
                         res->accepted = isOk(e);
                         res->message = toString(e);
                     });
                 logger->info("[{}] Service(TriggerForHand {}): {}", backend_.ioNodeName(), reg, sc.set_service_name);
             } else if (reg == "id" || reg == "reduRatio" || reg == "catchModeSet") {
-                maps_.services[sc.set_service_name] = node->create_service<eg5cd1_interfaces::srv::SetInt32Value>(
+                maps_.services[sc.set_service_name] = this->makeGroupedService<eg5cd1_interfaces::srv::SetInt32Value>(
                     sc.set_service_name,
                     [this, reg](
                         const eg5cd1_interfaces::srv::SetInt32Value::Request::SharedPtr req,
@@ -241,7 +249,6 @@ void EG5CD1InterfaceAdapter::wireServices() {
                             res->message = "rejected: hand_id mismatch";
                             return;
                         }
-                        backend_.ioPauseTimer(5);
                         const IoError e = backend_.ioWriteRegister(reg, {static_cast<int>(req->value)});
                         res->accepted = isOk(e);
                         res->message = toString(e);
@@ -269,7 +276,7 @@ void EG5CD1InterfaceAdapter::wireServices() {
                 throw std::runtime_error("[EG5CD1] 未映射的读寄存器服务: " + reg);
             }
 
-            maps_.services[sc.get_service_name] = node->create_service<eg5cd1_interfaces::srv::GetScalarForHand>(
+            maps_.services[sc.get_service_name] = this->makeGroupedService<eg5cd1_interfaces::srv::GetScalarForHand>(
                 sc.get_service_name,
                 [this, reg](
                     const eg5cd1_interfaces::srv::GetScalarForHand::Request::SharedPtr req,
@@ -279,7 +286,6 @@ void EG5CD1InterfaceAdapter::wireServices() {
                         res->message = "rejected: hand_id mismatch";
                         return;
                     }
-                    backend_.ioPauseTimer(5);
                     const auto rr = backend_.ioReadRegister(reg, 0);
                     res->value = (rr.ok() && !rr.values.empty()) ? static_cast<int32_t>(rr.values[0]) : 0;
                     res->message = toString(rr.error);
@@ -288,7 +294,9 @@ void EG5CD1InterfaceAdapter::wireServices() {
         }
     }
 
-    // --- 力控 / 触控组合 API（仅 hand_id + speed + force；步骤间隔 3ms，全程 ioPauseTimer 阻塞定时读）---
+    // --- 力控 / 触控组合 API（仅 hand_id + speed + force；步骤间隔 3ms）---
+    // 整组写经 ioWriteSequence 在设备 worker 上原子串行执行；定时读与之天然互不交错，
+    // 无需再用经验暂停时长。回调仅等待 worker 完成（不在回调内 sleep 持锁）。
     if (!node->has_parameter("eg5cd1_composite_service_prefix")) {
         node->declare_parameter<std::string>("eg5cd1_composite_service_prefix", "/gripper");
     }
@@ -301,7 +309,7 @@ void EG5CD1InterfaceAdapter::wireServices() {
     }
 
     const std::string svc_fg = composite_prefix + "/force_mode_grasp";
-    maps_.services[svc_fg] = node->create_service<eg5cd1_interfaces::srv::ForceModeGrasp>(
+    maps_.services[svc_fg] = this->makeGroupedService<eg5cd1_interfaces::srv::ForceModeGrasp>(
         svc_fg,
         [this](
             const eg5cd1_interfaces::srv::ForceModeGrasp::Request::SharedPtr req,
@@ -321,21 +329,19 @@ void EG5CD1InterfaceAdapter::wireServices() {
                     backend_.ioNodeName(), req->force);
                 return;
             }
-            backend_.ioPauseTimer(kPauseForceCompositeMs);
-            IoError e = backend_.ioWriteRegister("catchModeSet", {1});
-            if (!isOk(e)) { res->message = std::string("catchModeSet: ") + toString(e); return; }
-            sleep_composite_step();
-            e = backend_.ioWriteRegister("speedSet", {sp});
-            if (!isOk(e)) { res->message = std::string("speedSet: ") + toString(e); return; }
-            sleep_composite_step();
-            e = backend_.ioWriteRegister("forceSet", {fg});
-            res->accepted = isOk(e);
-            res->message = std::string("forceSet: ") + toString(e);
+            const std::vector<WriteStep> steps = {
+                {"catchModeSet", {1}, kCompositeStepMs},
+                {"speedSet", {sp}, kCompositeStepMs},
+                {"forceSet", {fg}, 0},
+            };
+            const SequenceResult r = backend_.ioWriteSequence(steps);
+            res->accepted = r.ok();
+            res->message = sequence_message(steps, r);
         });
     logger->info("[{}] Service(ForceModeGrasp): {}", backend_.ioNodeName(), svc_fg);
 
     const std::string svc_fo = composite_prefix + "/force_mode_open";
-    maps_.services[svc_fo] = node->create_service<eg5cd1_interfaces::srv::ForceModeOpen>(
+    maps_.services[svc_fo] = this->makeGroupedService<eg5cd1_interfaces::srv::ForceModeOpen>(
         svc_fo,
         [this](
             const eg5cd1_interfaces::srv::ForceModeOpen::Request::SharedPtr req,
@@ -355,21 +361,19 @@ void EG5CD1InterfaceAdapter::wireServices() {
                 return;
             }
             const int sp = clamp_speed(req->speed);
-            backend_.ioPauseTimer(kPauseForceCompositeMs);
-            IoError e = backend_.ioWriteRegister("catchModeSet", {1});
-            if (!isOk(e)) { res->message = std::string("catchModeSet: ") + toString(e); return; }
-            sleep_composite_step();
-            e = backend_.ioWriteRegister("speedSet", {sp});
-            if (!isOk(e)) { res->message = std::string("speedSet: ") + toString(e); return; }
-            sleep_composite_step();
-            e = backend_.ioWriteRegister("forceSet", {fo});
-            res->accepted = isOk(e);
-            res->message = std::string("forceSet: ") + toString(e);
+            const std::vector<WriteStep> steps = {
+                {"catchModeSet", {1}, kCompositeStepMs},
+                {"speedSet", {sp}, kCompositeStepMs},
+                {"forceSet", {fo}, 0},
+            };
+            const SequenceResult r = backend_.ioWriteSequence(steps);
+            res->accepted = r.ok();
+            res->message = sequence_message(steps, r);
         });
     logger->info("[{}] Service(ForceModeOpen): {}", backend_.ioNodeName(), svc_fo);
 
     const std::string svc_tg = composite_prefix + "/touch_mode_grasp";
-    maps_.services[svc_tg] = node->create_service<eg5cd1_interfaces::srv::TouchModeGrasp>(
+    maps_.services[svc_tg] = this->makeGroupedService<eg5cd1_interfaces::srv::TouchModeGrasp>(
         svc_tg,
         [this](
             const eg5cd1_interfaces::srv::TouchModeGrasp::Request::SharedPtr req,
@@ -383,24 +387,20 @@ void EG5CD1InterfaceAdapter::wireServices() {
             }
             const int sp = clamp_speed(req->speed);
             const int tf = clamp_touch_force(req->force);
-            backend_.ioPauseTimer(kPauseTouchCompositeMs);
-            IoError e = backend_.ioWriteRegister("catchModeSet", {2});
-            if (!isOk(e)) { res->message = std::string("catchModeSet: ") + toString(e); return; }
-            sleep_composite_step();
-            e = backend_.ioWriteRegister("speedSet", {sp});
-            if (!isOk(e)) { res->message = std::string("speedSet: ") + toString(e); return; }
-            sleep_composite_step();
-            e = backend_.ioWriteRegister("forceSet", {tf});
-            if (!isOk(e)) { res->message = std::string("forceSet: ") + toString(e); return; }
-            sleep_composite_step();
-            e = backend_.ioWriteRegister("catchModeClose", {1});
-            res->accepted = isOk(e);
-            res->message = std::string("catchModeClose: ") + toString(e);
+            const std::vector<WriteStep> steps = {
+                {"catchModeSet", {2}, kCompositeStepMs},
+                {"speedSet", {sp}, kCompositeStepMs},
+                {"forceSet", {tf}, kCompositeStepMs},
+                {"catchModeClose", {1}, 0},
+            };
+            const SequenceResult r = backend_.ioWriteSequence(steps);
+            res->accepted = r.ok();
+            res->message = sequence_message(steps, r);
         });
     logger->info("[{}] Service(TouchModeGrasp): {}", backend_.ioNodeName(), svc_tg);
 
     const std::string svc_to = composite_prefix + "/touch_mode_open";
-    maps_.services[svc_to] = node->create_service<eg5cd1_interfaces::srv::TouchModeOpen>(
+    maps_.services[svc_to] = this->makeGroupedService<eg5cd1_interfaces::srv::TouchModeOpen>(
         svc_to,
         [this](
             const eg5cd1_interfaces::srv::TouchModeOpen::Request::SharedPtr req,
@@ -414,19 +414,15 @@ void EG5CD1InterfaceAdapter::wireServices() {
             }
             const int sp = clamp_speed(req->speed);
             const int tf = clamp_touch_force(req->force);
-            backend_.ioPauseTimer(kPauseTouchCompositeMs);
-            IoError e = backend_.ioWriteRegister("catchModeSet", {2});
-            if (!isOk(e)) { res->message = std::string("catchModeSet: ") + toString(e); return; }
-            sleep_composite_step();
-            e = backend_.ioWriteRegister("speedSet", {sp});
-            if (!isOk(e)) { res->message = std::string("speedSet: ") + toString(e); return; }
-            sleep_composite_step();
-            e = backend_.ioWriteRegister("forceSet", {tf});
-            if (!isOk(e)) { res->message = std::string("forceSet: ") + toString(e); return; }
-            sleep_composite_step();
-            e = backend_.ioWriteRegister("catchModeOpen", {1});
-            res->accepted = isOk(e);
-            res->message = std::string("catchModeOpen: ") + toString(e);
+            const std::vector<WriteStep> steps = {
+                {"catchModeSet", {2}, kCompositeStepMs},
+                {"speedSet", {sp}, kCompositeStepMs},
+                {"forceSet", {tf}, kCompositeStepMs},
+                {"catchModeOpen", {1}, 0},
+            };
+            const SequenceResult r = backend_.ioWriteSequence(steps);
+            res->accepted = r.ok();
+            res->message = sequence_message(steps, r);
         });
     logger->info("[{}] Service(TouchModeOpen): {}", backend_.ioNodeName(), svc_to);
 }

@@ -61,7 +61,7 @@ serial_control/                        # = git 根 = colcon 工作区根
 - **示例配置**（随包安装到 `share/inspire_control_ros2/config`）：
   - `device_protocol_eg5cd1_example.yaml`：`protocol.type: EG5CD1_485` 与串口设备名。
   - `ros2_controller_eg5cd1_example.yaml`：话题名需与适配器约定一致：`gripper_state`、`open_len_set`、`speed_set`、`force_set`、`catch_mode_set`。
-  - **力控 / 触控组合服务**（节点启动后自动创建，默认前缀见参数）：`{prefix}/force_mode_grasp`、`force_mode_open`、`touch_mode_grasp`、`touch_mode_open`。请求字段均为 `hand_id`、`speed`（0–1000）、`force`（力控夹取 1–2000；力控张开 -2000..0；触控 0–2000）。步骤间隔 3ms，全程 `ioPauseTimer` 暂停状态轮询。前缀由 ROS 参数 **`eg5cd1_composite_service_prefix`** 控制（默认 `/gripper`），与示例话题的 `/gripper/...` 对齐。
+  - **力控 / 触控组合服务**（节点启动后自动创建，默认前缀见参数）：`{prefix}/force_mode_grasp`、`force_mode_open`、`touch_mode_grasp`、`touch_mode_open`。请求字段均为 `hand_id`、`speed`（0–1000）、`force`（力控夹取 1–2000；力控张开 -2000..0；触控 0–2000）。整组写经 `ioWriteSequence` 在该设备的 `DeviceWorker` 单线程上**原子串行执行**（步骤间隔 3ms 在 worker 线程内），与定时读状态天然互不交错，无需再暂停状态轮询。前缀由 ROS 参数 **`eg5cd1_composite_service_prefix`** 控制（默认 `/gripper`），与示例话题的 `/gripper/...` 对齐。
 - **启动示例**：
 
 ```bash
@@ -382,6 +382,30 @@ cd /home/ubuntu/serial_control/src/inspire_serial_core
 cmake -S . -B build && cmake --build build -j
 ```
 
+#### 运行单元测试
+
+核心库自带 gtest 单元测试（覆盖 `RingBuffer` 与 RH56F1 / RH5DG2 / EG5CD1 三个 485 协议的命令构建、响应解析、校验和等**纯逻辑**），不依赖真实串口硬件。测试源码位于 `src/inspire_serial_core/tests/`。
+
+- **colcon 工作区方式**（推荐）：
+
+```bash
+cd /home/ubuntu/serial_control
+source /opt/ros/humble/setup.bash
+colcon build --packages-select inspire_serial_core
+colcon test --packages-select inspire_serial_core
+colcon test-result --all          # 查看测试汇总
+```
+
+- **独立 CMake 方式**（无 ROS 环境）：
+
+```bash
+cd /home/ubuntu/serial_control/src/inspire_serial_core
+cmake -S . -B build && cmake --build build -j
+ctest --test-dir build --output-on-failure
+```
+
+> 测试默认随核心库一起构建（CMake 选项 `INSPIRE_SERIAL_CORE_BUILD_TESTS=ON`）；若环境未安装 GTest（`libgtest-dev`），构建会自动跳过测试而不影响主库。关闭测试可加 `-DINSPIRE_SERIAL_CORE_BUILD_TESTS=OFF`。
+
 ### 4. 配置设备
 
 编辑 **`src/driver/config/device_protocol_config.yaml`**（或与 launch 一致的 `--device-config` 路径）：
@@ -553,6 +577,17 @@ ROS2 设备控制节点，通过 **`InterfaceAdapter`** 使用 **`rh5dg2_interfa
 - 话题：订阅命令、发布状态（消息类型由 **`device_protocol_config.yaml`** 的 **`protocol.type`** 推导的机型决定）
 - 服务：各功能对应独立 `.srv`，不再使用统一 Register 服务
 - 定时器循环：默认 50Hz（`update_rate` 可配）
+
+**并发模型（串口事务串行化）**：
+
+每个设备节点持有一个 **`DeviceWorker`**（请求队列 + 单工作线程，见 `inspire_serial_core/include/device_worker.hpp`）。所有读寄存器、写寄存器、组合写序列（`ioWriteSequence`）都被提交到该 worker，由单线程按 FIFO 执行——这从结构上保证对同一串口的「写命令 → 读应答 → 解析」整组事务**永不交错**。
+
+同时 `RegisterController` 把**定时器**与**服务/订阅**放进不同的回调组（定时器=互斥组，服务=可重入组），配合 `MultiThreadedExecutor`，使「定时读状态」与「服务/话题写寄存器」可在不同线程**并行进入**，而真正落到串口时仍由 worker 串行化。要点：
+
+- 服务回调对 worker 的 `future.get()` 等待不会阻塞定时器线程（不同回调组）。
+- 定时读做**合并背压**：上一次读任务未完成则跳过本次提交，避免队列堆积。
+- 每次事务起始清空串口 RX 缓冲，去除历史帧残留。
+- 回调内不再 `sleep` 持锁；EG-5CD1 组合序列作为单个原子任务在 worker 上执行。
 
 ### 5. 配置系统 (ConfigLoader)
 
