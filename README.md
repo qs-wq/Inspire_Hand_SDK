@@ -26,7 +26,7 @@ serial_control/                        # = git 根 = colcon 工作区根
 │   │   ├── include/                   #    protocol.hpp / io_error.hpp / *_protocol.hpp / serial_port.hpp ...
 │   │   ├── src/                       #    协议 / 串口 / 配置 / 日志实现
 │   │   ├── examples/                  #    main.cpp 多设备并行控制示例（serial_hand_control_node）
-│   │   └── config/                    #    device_protocol_config.yaml、RH56F1.yaml、RH5DG2.yaml ...
+│   │   └── config/                    #    device_protocol_config.yaml、device_protocol_rh56f1_example.yaml、device_protocol_rh5dg2_example.yaml ...
 │   ├── driver/                        # ② 功能包 inspire_control_ros2（find_package(inspire_serial_core)）
 │   │   ├── src/                       #    节点、RegisterController、机型适配器
 │   │   ├── include/
@@ -51,7 +51,7 @@ serial_control/                        # = git 根 = colcon 工作区根
 | **inspire_control_ros2** | 节点与驱动逻辑：`inspire_control_node`、`RegisterController`、`RH5DG2InterfaceAdapter` / `RH56F1InterfaceAdapter` / **`EG5CD1InterfaceAdapter`**，配置文件安装在 `share/inspire_control_ros2/config`。 |
 | **rh5dg2_interfaces** | RH5DG2（13 自由度）专用 `msg`/`srv`，例如 `SetAngle1`、`GetAngleAct1`、`Setforce`、`Geterror` 等。 |
 | **rh56f1_interfaces** | RH56 系列（6 自由度）专用 `msg`/`srv`。 |
-| **eg5cd1_interfaces** | **因时 EG-5CD1** 电动夹爪 RS485：`GripperState`、`SetInt32`、`TriggerForHand`、`SetInt32Value`、`GetScalarForHand`；**组合服务** `ForceModeGrasp` / `ForceModeOpen` / `TouchModeGrasp` / `TouchModeOpen`（仅 `hand_id`+`speed`+`force`，内部按文档顺序写寄存器并阻塞定时读，见下）。 |
+| **eg5cd1_interfaces** | **因时 EG-5CD1** 电动夹爪 RS485：`GripperState`、`SetInt32`、`TriggerForHand`、`SetInt32Value`、`GetScalarForHand`；**组合服务** `ForceModeGrasp` / `ForceModeOpen` / `TouchModeGrasp` / `TouchModeOpen`（仅 `hand_id`+`speed`+`force`，内部按文档顺序经 `ioWriteSequence` 在设备 `DeviceWorker` 上**原子串行**写寄存器，见下）。 |
 
 在 **`device_protocol_config.yaml`** 中设置 **`protocol.type`**（如 **`RH5DG2_485`**、**`RH56F1_485`**、**`EG5CD1_485`** 等），启动时自动推导 **`interfaces_profile`**（`RH5DG2` / `RH56F1` / **`EG5CD1`**）并创建对应适配器。
 
@@ -384,7 +384,7 @@ cmake -S . -B build && cmake --build build -j
 
 #### 运行单元测试
 
-核心库自带 gtest 单元测试（覆盖 `RingBuffer` 与 RH56F1 / RH5DG2 / EG5CD1 三个 485 协议的命令构建、响应解析、校验和等**纯逻辑**），不依赖真实串口硬件。测试源码位于 `src/inspire_serial_core/tests/`。
+核心库自带 gtest 单元测试，覆盖：`RingBuffer` 环形缓冲、`DeviceWorker` 串口事务串行化（FIFO 执行、异常传播、并发提交无重叠、关停语义），以及 RH56F1 / RH5DG2 / EG5CD1 三个 485 协议的命令构建、响应解析、校验和等**纯逻辑**。全部用例不依赖真实串口硬件，测试源码位于 `src/inspire_serial_core/tests/`。
 
 - **colcon 工作区方式**（推荐）：
 
@@ -509,7 +509,7 @@ ros2 service call /hand_left/set_id rh5dg2_interfaces/srv/Setid \
 
 ### 协议格式说明
 
-📖 **[docs/RH56F1_485协议格式说明.md](docs/RH56F1_485协议格式说明.md)**（另见 `docs/RH5DG2_485协议格式说明.md`、`docs/夹爪485寄存器规则.md`、`docs/EG5CD1_ROS2_API.md`）
+📖 **[docs/RH56F1_485协议格式说明.md](docs/RH56F1_485协议格式说明.md)**（另见 `docs/RH5DG2_485协议格式说明.md`、`docs/EG5CD1协议格式说明.md`、`docs/EG5CD1_ROS2_API.md`）
 
 包含：
 - 读写请求格式
@@ -588,6 +588,8 @@ ROS2 设备控制节点，通过 **`InterfaceAdapter`** 使用 **`rh5dg2_interfa
 - 定时读做**合并背压**：上一次读任务未完成则跳过本次提交，避免队列堆积。
 - 每次事务起始清空串口 RX 缓冲，去除历史帧残留。
 - 回调内不再 `sleep` 持锁；EG-5CD1 组合序列作为单个原子任务在 worker 上执行。
+
+> **真机验证**：已用 RH5DG2（`/dev/ttyUSB0`，115200，Hand_ID 1）做硬件冒烟测试——50Hz 定时读、状态话题发布、只读服务并发调用、`set_angle` 写入与「读+写+服务」混合并发压测均通过；约数万次读取仅出现 1 次瞬时读失败且下一周期立即自恢复、未污染后续帧，验证了「每次事务清空 RX + worker 串行化」对偶发失败的隔离效果。
 
 ### 5. 配置系统 (ConfigLoader)
 
@@ -862,5 +864,5 @@ export PKG_CONFIG_PATH=/usr/lib/pkgconfig:/usr/local/lib/pkgconfig
 
 ---
 
-**文档版本**：v1.0
-**最后更新**：2026-05-12
+**文档版本**：v1.1
+**最后更新**：2026-06-17
