@@ -13,7 +13,7 @@ constexpr uint8_t kRespHdr1 = 0x16;
 constexpr uint8_t kCmdRead = 0x00;
 constexpr uint8_t kCmdWrite = 0x01;
 
-} // namespace
+}  // namespace
 
 const std::map<std::string, int> EG5CD1_485_Protocol::REGISTER_MAP = {
     {"save", 1002},
@@ -134,8 +134,8 @@ uint8_t EG5CD1_485_Protocol::readByteAtOffset(const RingBuffer& ringBuffer, size
     return buf[(tailIndex + offset) % bufferSize];
 }
 
-std::vector<uint8_t> EG5CD1_485_Protocol::extractFromRingBuffer(const RingBuffer& ringBuffer, size_t startOffset,
-                                                                size_t length) const {
+std::vector<uint8_t> EG5CD1_485_Protocol::extractFromRingBuffer(
+    const RingBuffer& ringBuffer, size_t startOffset, size_t length) const {
     std::vector<uint8_t> result(length);
     const std::vector<uint8_t>& buf = ringBuffer.getBuffer();
     size_t tailIndex = ringBuffer.getTail();
@@ -158,8 +158,8 @@ std::string EG5CD1_485_Protocol::formatBytesToHex(const uint8_t* data, size_t le
     return oss.str();
 }
 
-std::vector<uint8_t> EG5CD1_485_Protocol::readResponseWithLoop(Device device, int timeout_ms, size_t /*min_bytes*/,
-                                                               bool /*is_read_response*/) const {
+std::vector<uint8_t> EG5CD1_485_Protocol::readResponseWithLoop(
+    Device device, int timeout_ms, size_t /*min_bytes*/, bool /*is_read_response*/) const {
     auto logger = getLogger();
     std::vector<uint8_t> response;
     const auto start_time = std::chrono::steady_clock::now();
@@ -215,7 +215,7 @@ std::vector<uint8_t> EG5CD1_485_Protocol::readResponseWithLoop(Device device, in
 
             if (response.size() >= expected_len) {
                 return std::vector<uint8_t>(response.begin() + static_cast<std::ptrdiff_t>(frame_start),
-                                            response.begin() + static_cast<std::ptrdiff_t>(expected_len));
+                    response.begin() + static_cast<std::ptrdiff_t>(expected_len));
             }
         }
 
@@ -325,7 +325,9 @@ bool EG5CD1_485_Protocol::validateChecksum(const std::vector<uint8_t>& response)
     return checksum == response.back();
 }
 
-std::pair<bool, TouchDataResult> EG5CD1_485_Protocol::parseTouchData(RingBuffer&, int) { return {false, {}}; }
+std::pair<bool, TouchDataResult> EG5CD1_485_Protocol::parseTouchData(RingBuffer&, int) {
+    return {false, {}};
+}
 
 IoError EG5CD1_485_Protocol::writeRegister(Device device, const std::string& reg_name, const std::vector<int>& values) {
     auto logger = getLogger();
@@ -350,8 +352,7 @@ IoError EG5CD1_485_Protocol::writeRegister(Device device, const std::string& reg
     }
 
     try {
-        logger->debug("[EG5CD1 写] {} 地址=0x{:04X} 帧={}", reg_name, address,
-                      formatBytesToHex(cmd.data(), cmd.size()));
+        logger->debug("[EG5CD1 写] {} 地址=0x{:04X} 帧={}", reg_name, address, formatBytesToHex(cmd.data(), cmd.size()));
         device->write(cmd);
         auto writeResponse = readResponseWithLoop(device, 25, 9, false);
         if (writeResponse.empty()) {
@@ -382,8 +383,8 @@ IoError EG5CD1_485_Protocol::writeRegister(Device device, const std::string& reg
     }
 }
 
-RegisterReadResult EG5CD1_485_Protocol::readRegister(Device device, RingBuffer& ringBuffer, const std::string& reg_name,
-                                                     size_t length) {
+RegisterReadResult EG5CD1_485_Protocol::readRegister(
+    Device device, RingBuffer& ringBuffer, const std::string& reg_name, size_t length) {
     auto logger = getLogger();
     ringBuffer.clear();
 
@@ -400,8 +401,11 @@ RegisterReadResult EG5CD1_485_Protocol::readRegister(Device device, RingBuffer& 
 
     try {
         const auto cmd = buildReadCommand(address, length);
-        logger->debug("[EG5CD1 读] {} 地址=0x{:04X} len={} 帧={}", reg_name, address, length,
-                      formatBytesToHex(cmd.data(), cmd.size()));
+        logger->debug("[EG5CD1 读] {} 地址=0x{:04X} len={} 帧={}",
+            reg_name,
+            address,
+            length,
+            formatBytesToHex(cmd.data(), cmd.size()));
         device->write(cmd);
         auto response = readResponseWithLoop(device, 25, 8, true);
         if (response.empty()) {
@@ -431,6 +435,8 @@ RegisterReadResult EG5CD1_485_Protocol::readRegister(Device device, RingBuffer& 
     }
 }
 
-TouchReadResult EG5CD1_485_Protocol::readTouchData(Device, RingBuffer&, int) { return {IoError::NotSupported, {}}; }
+TouchReadResult EG5CD1_485_Protocol::readTouchData(Device, RingBuffer&, int) {
+    return {IoError::NotSupported, {}};
+}
 
 REGISTER_PROTOCOL("EG5CD1_485", EG5CD1_485_Protocol);

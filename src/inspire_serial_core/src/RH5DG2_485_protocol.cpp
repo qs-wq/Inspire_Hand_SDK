@@ -1,36 +1,38 @@
 #include "RH5DG2_485_protocol.hpp"
-#include "logger_manager.hpp"   // 提供全局getLogger()
-#include "protocol_factory.hpp" // 用于协议注册
+#include "logger_manager.hpp"  // 提供全局getLogger()
+#include "protocol_factory.hpp"  // 用于协议注册
 
 // 寄存器字典
-const std::map<std::string, int> RH5DG2_485_Protocol::REGISTER_MAP = {{"id", 1000},
-                                                                      {"baudRate", 1001},
-                                                                      {"clearError", 1003},
-                                                                      {"save", 1004},
-                                                                      {"resetPara", 1005},
-                                                                      {"gestureForceClb", 1007},
-                                                                      {"currentSet", 1024},
-                                                                      {"defaultSpeedSet", 1038},
-                                                                      {"defaultForceSet", 1052},
-                                                                      {"posSet", 1066},
-                                                                      {"angleSet", 1080},
-                                                                      {"forceSet", 1094},
-                                                                      {"speedSet", 1108},
-                                                                      {"posAct", 1122},
-                                                                      {"angleAct", 1136},
-                                                                      {"forceAct", 1150},
-                                                                      {"currentAct", 1164},
-                                                                      {"errorCode", 1178},
-                                                                      {"status", 1192},
-                                                                      {"temp", 1206},
-                                                                      {"mode", 1220},
-                                                                      {"pause", 1300},
-                                                                      {"stop", 1301},
-                                                                      {"actionLibraryIndex", 1431},
-                                                                      {"actionLibraryRun", 1432},
-                                                                      {"actionSeqIndex", 2160},
-                                                                      {"actionSeqRun", 2162},
-                                                                      {"touchAct", 3000}};
+const std::map<std::string, int> RH5DG2_485_Protocol::REGISTER_MAP = {
+    {"id", 1000},
+    {"baudRate", 1001},
+    {"clearError", 1003},
+    {"save", 1004},
+    {"resetPara", 1005},
+    {"gestureForceClb", 1007},
+    {"currentSet", 1024},
+    {"defaultSpeedSet", 1038},
+    {"defaultForceSet", 1052},
+    {"posSet", 1066},
+    {"angleSet", 1080},
+    {"forceSet", 1094},
+    {"speedSet", 1108},
+    {"posAct", 1122},
+    {"angleAct", 1136},
+    {"forceAct", 1150},
+    {"currentAct", 1164},
+    {"errorCode", 1178}, 
+    {"status", 1192},
+    {"temp", 1206},  
+    {"mode", 1220},
+    {"pause", 1300},
+    {"stop", 1301},
+    {"actionLibraryIndex", 1431},
+    {"actionLibraryRun", 1432},    
+    {"actionSeqIndex", 2160},
+    {"actionSeqRun", 2162}, 
+    {"touchAct", 3000} 
+};
 
 // 寄存器默认读取长度映射表（字节数）
 const std::map<std::string, size_t> RH5DG2_485_Protocol::REGISTER_READ_LENGTH_MAP = {
@@ -97,13 +99,12 @@ std::vector<uint8_t> RH5DG2_485_Protocol::buildWriteCommand(int address, const s
     // byte[7] ~ byte[7+Register_Length-1]: Data[0] ~ Data[Register_Length-1] (写入数据)
     // byte[7+Register_Length]: Checksum (校验和)
     std::vector<uint8_t> cmd = {
-        0xEB,
-        0x90,                                        // 帧头
-        device_id_,                                  // byte[2]: Hands_ID
+        0xEB, 0x90,           // 帧头
+        device_id_,           // byte[2]: Hands_ID
         static_cast<uint8_t>(values.size() * 2 + 3), // byte[3]: Register_Length + 3
-        0x12,                                        // byte[4]: 写寄存器命令标志
-        static_cast<uint8_t>(address & 0xFF),        // byte[5]: Address_L
-        static_cast<uint8_t>((address >> 8) & 0xFF)  // byte[6]: Address_H
+        0x12,                 // byte[4]: 写寄存器命令标志
+        static_cast<uint8_t>(address & 0xFF),     // byte[5]: Address_L
+        static_cast<uint8_t>((address >> 8) & 0xFF) // byte[6]: Address_H
     };
 
     // 写入数据（每个值两个字节，小端序：低字节在前，高字节在后）
@@ -135,11 +136,10 @@ std::vector<uint8_t> RH5DG2_485_Protocol::buildReadCommand(int address, size_t l
     // byte[7]: Register_Length (读取数据的字节长度)
     // byte[8]: Checksum (校验和)
     std::vector<uint8_t> cmd = {
-        0xEB,
-        0x90,                                        // 帧头
-        device_id_,                                  // byte[2]: Hands_ID
-        0x04,                                        // byte[3]: 该帧数据部分长度（固定4）
-        0x11,                                        // byte[4]: 读寄存器
+        0xEB, 0x90,           // 帧头
+        device_id_,           // byte[2]: Hands_ID
+        0x04,                 // byte[3]: 该帧数据部分长度（固定4）
+        0x11,                 // byte[4]: 读寄存器
         static_cast<uint8_t>(address & 0xFF),        // byte[5]: Address_L
         static_cast<uint8_t>((address >> 8) & 0xFF), // byte[6]: Address_H
         static_cast<uint8_t>(length & 0xFF)          // byte[7]: Register_Length (字节长度)
@@ -167,8 +167,7 @@ uint8_t RH5DG2_485_Protocol::readByteAtOffset(const RingBuffer& ringBuffer, size
 }
 
 // 辅助函数：从环形缓冲区提取指定范围的数据（仅在需要校验时才调用）
-std::vector<uint8_t> RH5DG2_485_Protocol::extractFromRingBuffer(const RingBuffer& ringBuffer, size_t startOffset,
-                                                                size_t length) const {
+std::vector<uint8_t> RH5DG2_485_Protocol::extractFromRingBuffer(const RingBuffer& ringBuffer, size_t startOffset, size_t length) const {
     std::vector<uint8_t> result(length);
     const std::vector<uint8_t>& buf = ringBuffer.getBuffer();
     size_t tailIndex = ringBuffer.getTail();
@@ -184,21 +183,19 @@ std::string RH5DG2_485_Protocol::formatBytesToHex(const uint8_t* data, size_t le
     std::ostringstream oss;
     oss << std::hex << std::uppercase;
     for (size_t i = 0; i < length; ++i) {
-        if (i > 0)
-            oss << " ";
+        if (i > 0) oss << " ";
         oss << "0x" << std::setfill('0') << std::setw(2) << static_cast<int>(data[i]);
     }
     return oss.str();
 }
 
 // 循环读取响应数据，直到接收到足够字节或超时
-std::vector<uint8_t> RH5DG2_485_Protocol::readResponseWithLoop(Device device, int timeout_ms, size_t min_bytes,
-                                                               bool is_read_response) const {
+std::vector<uint8_t> RH5DG2_485_Protocol::readResponseWithLoop(Device device, int timeout_ms, size_t min_bytes, bool is_read_response) const {
     auto logger = getLogger();
     std::vector<uint8_t> response;
     auto start_time = std::chrono::steady_clock::now();
     auto timeout = std::chrono::milliseconds(timeout_ms);
-
+    
     // 循环读取，直到接收到足够字节或超时
     while (true) {
         // 检查总超时
@@ -208,18 +205,18 @@ std::vector<uint8_t> RH5DG2_485_Protocol::readResponseWithLoop(Device device, in
             logger->debug("读取响应超时: 已等待 {} ms, 当前数据长度: {}", timeout_ms, response.size());
             break;
         }
-
+        
         // 使用剩余超时时间读取数据（每次最多等待剩余时间，但不超过5ms）
         auto remaining_ms = timeout - elapsed_ms;
         auto max_wait = std::chrono::milliseconds(5);
         auto read_timeout = (remaining_ms < max_wait) ? remaining_ms : max_wait;
         auto new_data = device->read(read_timeout);
-
+        
         if (!new_data.empty()) {
             response.insert(response.end(), new_data.begin(), new_data.end());
             logger->debug("循环读取: 本次读取 {} 字节, 累计 {} 字节", new_data.size(), response.size());
         }
-
+        
         // 在缓冲区中搜索帧头 0x90 0xEB（回复帧帧头）
         size_t header_pos = SIZE_MAX;
         for (size_t i = 0; i + 1 < response.size(); ++i) {
@@ -228,23 +225,23 @@ std::vector<uint8_t> RH5DG2_485_Protocol::readResponseWithLoop(Device device, in
                 break;
             }
         }
-
+        
         // 如果找到帧头，从帧头位置开始验证和计算长度
         if (header_pos != SIZE_MAX) {
             size_t frame_start = header_pos;
-
+            
             // 检查是否有足够的数据来判断长度（至少需要8字节：帧头2 + ID1 + 长度1 + 命令1 + 地址2 + 至少1字节数据）
             if (response.size() >= frame_start + 8) {
                 uint8_t hands_id = response[frame_start + 2];
                 uint8_t data_length = response[frame_start + 3];
                 uint8_t command = response[frame_start + 4];
-
+                
                 // 验证命令类型
                 bool valid_command = (command == 0x11 || command == 0x12);
-
+                
                 // 验证Hands_ID（如果已设置device_id_）
                 bool valid_id = (device_id_ == 0 || hands_id == device_id_);
-
+                
                 if (valid_command && valid_id) {
                     // 计算期望的总长度
                     size_t expected_len = 0;
@@ -265,27 +262,27 @@ std::vector<uint8_t> RH5DG2_485_Protocol::readResponseWithLoop(Device device, in
                         // 写回复：固定9字节
                         expected_len = frame_start + 9;
                     }
-
+                    
                     // 检查是否已接收到完整帧
                     if (response.size() >= expected_len) {
                         // 提取完整帧（从帧头开始到帧结束）
-                        std::vector<uint8_t> complete_frame(response.begin() + frame_start,
-                                                            response.begin() + expected_len);
-                        logger->debug("{}回复接收完成: 期望 {} 字节(从位置{}开始), 实际 {} 字节",
-                                      (command == 0x11 ? "读" : "写"), expected_len - frame_start, frame_start,
-                                      response.size());
+                        std::vector<uint8_t> complete_frame(response.begin() + frame_start, 
+                                                           response.begin() + expected_len);
+                        logger->debug("{}回复接收完成: 期望 {} 字节(从位置{}开始), 实际 {} 字节", 
+                                     (command == 0x11 ? "读" : "写"), 
+                                     expected_len - frame_start, frame_start, response.size());
                         return complete_frame;
                     } else {
                         // 数据还不够，继续读取
-                        logger->debug("帧头已找到(位置{}), 需要 {} 字节, 当前 {} 字节, 继续读取...", frame_start,
-                                      expected_len, response.size());
+                        logger->debug("帧头已找到(位置{}), 需要 {} 字节, 当前 {} 字节, 继续读取...", 
+                                     frame_start, expected_len, response.size());
                     }
                 } else {
                     // 命令类型或ID不匹配，可能是错误的帧头，继续搜索
                     if (response.size() > frame_start + 1) {
                         // 从帧头后继续搜索
-                        logger->debug("帧头位置{}的命令/ID验证失败 (cmd=0x{:02X}, id={}), 继续搜索...", frame_start,
-                                      command, hands_id);
+                        logger->debug("帧头位置{}的命令/ID验证失败 (cmd=0x{:02X}, id={}), 继续搜索...", 
+                                     frame_start, command, hands_id);
                     }
                 }
             } else {
@@ -295,18 +292,18 @@ std::vector<uint8_t> RH5DG2_485_Protocol::readResponseWithLoop(Device device, in
         } else {
             // 未找到帧头，继续读取
             if (response.size() >= 2) {
-                logger->debug("未找到帧头, 当前数据: 0x{:02X} 0x{:02X}..., 继续读取...", response[0],
-                              response.size() > 1 ? response[1] : 0);
+                logger->debug("未找到帧头, 当前数据: 0x{:02X} 0x{:02X}..., 继续读取...", 
+                             response[0], response.size() > 1 ? response[1] : 0);
             }
         }
-
+        
         // 如果已经接收到一些数据但还不够，短暂休眠后继续
         if (response.empty()) {
             // 没有数据时，稍微等待一下
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
         }
     }
-
+    
     // 超时退出，如果找到了帧头但数据不完整，返回从帧头开始的部分数据
     if (response.size() >= 2) {
         size_t header_pos = SIZE_MAX;
@@ -323,7 +320,7 @@ std::vector<uint8_t> RH5DG2_485_Protocol::readResponseWithLoop(Device device, in
             return partial_frame;
         }
     }
-
+    
     return response;
 }
 
@@ -346,7 +343,8 @@ std::pair<bool, std::vector<int>> RH5DG2_485_Protocol::parseResponse(RingBuffer&
         size_t startIdx = 0;
         bool found = false;
         for (size_t i = 0; i + 1 < bufSize; ++i) {
-            if (readByteAtOffset(ringBuffer, i) == 0x90 && readByteAtOffset(ringBuffer, i + 1) == 0xEB) {
+            if (readByteAtOffset(ringBuffer, i) == 0x90 &&
+                readByteAtOffset(ringBuffer, i + 1) == 0xEB) {
                 startIdx = i;
                 found = true;
                 break;
@@ -361,9 +359,9 @@ std::pair<bool, std::vector<int>> RH5DG2_485_Protocol::parseResponse(RingBuffer&
         }
 
         // 读取回复帧关键字段
-        uint8_t hands_id = readByteAtOffset(ringBuffer, startIdx + 2);    // byte[2]: Hands_ID
-        uint8_t data_length = readByteAtOffset(ringBuffer, startIdx + 3); // byte[3]: 数据部分长度
-        uint8_t command = readByteAtOffset(ringBuffer, startIdx + 4);     // byte[4]: 命令类型
+        uint8_t hands_id = readByteAtOffset(ringBuffer, startIdx + 2);      // byte[2]: Hands_ID
+        uint8_t data_length = readByteAtOffset(ringBuffer, startIdx + 3);    // byte[3]: 数据部分长度
+        uint8_t command = readByteAtOffset(ringBuffer, startIdx + 4);        // byte[4]: 命令类型
 
         // 验证命令类型：0x11=读寄存器回复，0x12=写寄存器回复
         if (command != 0x11 && command != 0x12) {
@@ -390,9 +388,7 @@ std::pair<bool, std::vector<int>> RH5DG2_485_Protocol::parseResponse(RingBuffer&
                 return {false, {}};
             }
             size_t register_length = data_length - 3;
-            response_len =
-                8 +
-                register_length; // 帧头(2) + ID(1) + 长度(1) + 命令(1) + 地址(2) + 数据(register_length) + 校验和(1)
+            response_len = 8 + register_length; // 帧头(2) + ID(1) + 长度(1) + 命令(1) + 地址(2) + 数据(register_length) + 校验和(1)
         } else {
             // 写回复：固定9字节（byte[3] = 4，总长度 = 9）
             response_len = 9;
@@ -414,7 +410,7 @@ std::pair<bool, std::vector<int>> RH5DG2_485_Protocol::parseResponse(RingBuffer&
         // 写回复：不需要校验
         if (command == 0x12) {
             // 验证byte[7]是否为1（写寄存器回复的固定值）
-            // if (response.size() >= 8 && response[7] != 1) {
+            //if (response.size() >= 8 && response[7] != 1) {
             //    logger->warn("写寄存器回复格式异常: byte[7] = {} (期望 1)", response[7]);
             //}
             ringBuffer.advance(startIdx + response_len);
@@ -454,18 +450,18 @@ bool RH5DG2_485_Protocol::validateChecksum(const std::vector<uint8_t>& response)
     if (response.size() < 9) {
         return false;
     }
-
+    
     // 验证回复帧头
     if (response[0] != 0x90 || response[1] != 0xEB) {
         return false;
     }
-
+    
     // 计算校验和：从byte[2]（Hands_ID）开始到倒数第二个字节（不包括校验和本身）
     uint8_t checksum = 0;
     for (size_t i = 2; i < response.size() - 1; ++i) {
         checksum += response[i];
     }
-
+    
     // 校验和应该等于响应的最后一个字节
     bool valid = (checksum == response.back());
     if (!valid) {
@@ -497,7 +493,8 @@ std::pair<bool, TouchDataResult> RH5DG2_485_Protocol::parseTouchData(RingBuffer&
         size_t startIdx = 0;
         bool found = false;
         for (size_t i = 0; i + 1 < bufSize; ++i) {
-            if (readByteAtOffset(ringBuffer, i) == 0x90 && readByteAtOffset(ringBuffer, i + 1) == 0xEB) {
+            if (readByteAtOffset(ringBuffer, i) == 0x90 &&
+                readByteAtOffset(ringBuffer, i + 1) == 0xEB) {
                 startIdx = i;
                 found = true;
                 break;
@@ -600,10 +597,10 @@ std::pair<bool, TouchDataResult> RH5DG2_485_Protocol::parseTouchData(RingBuffer&
                 }
             }
         } else {
-            logger->warn("触觉数据不足，无法解析掌心数据 (需要 {} 字节，实际可用 {} 字节)", palm_data_length,
-                         (data_start + available_data_length > palm_start_idx)
-                             ? (data_start + available_data_length - palm_start_idx)
-                             : 0);
+            logger->warn("触觉数据不足，无法解析掌心数据 (需要 {} 字节，实际可用 {} 字节)",
+                         palm_data_length,
+                         (data_start + available_data_length > palm_start_idx) ?
+                             (data_start + available_data_length - palm_start_idx) : 0);
         }
 
         ringBuffer.advance(startIdx + response_len);
@@ -634,8 +631,7 @@ IoError RH5DG2_485_Protocol::writeRegister(Device device, const std::string& reg
     }
 
     try {
-        logger->debug("[写入命令] 寄存器: {}, 地址: 0x{:04X}, 命令: {}", reg_name, address,
-                      formatBytesToHex(cmd.data(), cmd.size()));
+        logger->debug("[写入命令] 寄存器: {}, 地址: 0x{:04X}, 命令: {}", reg_name, address, formatBytesToHex(cmd.data(), cmd.size()));
 
         device->write(cmd);
 
@@ -646,8 +642,7 @@ IoError RH5DG2_485_Protocol::writeRegister(Device device, const std::string& reg
             logger->error("写入寄存器失败：{} (无响应)", reg_name);
             return IoError::Timeout;
         }
-        logger->debug("[写响应] 寄存器: {}, 响应: {}", reg_name,
-                      formatBytesToHex(writeResponse.data(), writeResponse.size()));
+        logger->debug("[写响应] 寄存器: {}, 响应: {}", reg_name, formatBytesToHex(writeResponse.data(), writeResponse.size()));
 
         {
             RingBuffer tempBuffer(128);
@@ -660,8 +655,7 @@ IoError RH5DG2_485_Protocol::writeRegister(Device device, const std::string& reg
             oss << "写入" << reg_name << ":(";
             for (size_t i = 0; i < values.size(); ++i) {
                 oss << values[i];
-                if (i != values.size() - 1)
-                    oss << " ";
+                if (i != values.size() - 1) oss << " ";
             }
             oss << ")";
             logger->info(oss.str());
@@ -673,8 +667,8 @@ IoError RH5DG2_485_Protocol::writeRegister(Device device, const std::string& reg
             std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
             auto saveCmd = buildWriteCommand(REGISTER_MAP.at("save"), {1});
-            logger->debug("[写入命令] 寄存器: save, 地址: 0x{:04X}, 命令: {}", REGISTER_MAP.at("save"),
-                          formatBytesToHex(saveCmd.data(), saveCmd.size()));
+            logger->debug("[写入命令] 寄存器: save, 地址: 0x{:04X}, 命令: {}",
+                         REGISTER_MAP.at("save"), formatBytesToHex(saveCmd.data(), saveCmd.size()));
             device->write(saveCmd);
             auto saveResponse = readResponseWithLoop(device, 25, 9, false);
 
@@ -683,8 +677,7 @@ IoError RH5DG2_485_Protocol::writeRegister(Device device, const std::string& reg
                 tempBuffer.push(saveResponse.data(), saveResponse.size());
                 auto [parseSuccess, _] = parseResponse(tempBuffer);
                 if (parseSuccess) {
-                    logger->debug("[写响应] 寄存器: save, 响应: {}",
-                                  formatBytesToHex(saveResponse.data(), saveResponse.size()));
+                    logger->debug("[写响应] 寄存器: save, 响应: {}", formatBytesToHex(saveResponse.data(), saveResponse.size()));
                     logger->info("写入save:(1)");
                 } else {
                     logger->warn("[写响应] 寄存器: save, 响应格式验证失败");
@@ -701,8 +694,8 @@ IoError RH5DG2_485_Protocol::writeRegister(Device device, const std::string& reg
             std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
             auto actionSeqRunCmd = buildWriteCommand(REGISTER_MAP.at("actionSeqRun"), {1});
-            logger->debug("[写入命令] 寄存器: actionSeqRun, 地址: 0x{:04X}, 命令: {}", REGISTER_MAP.at("actionSeqRun"),
-                          formatBytesToHex(actionSeqRunCmd.data(), actionSeqRunCmd.size()));
+            logger->debug("[写入命令] 寄存器: actionSeqRun, 地址: 0x{:04X}, 命令: {}",
+                         REGISTER_MAP.at("actionSeqRun"), formatBytesToHex(actionSeqRunCmd.data(), actionSeqRunCmd.size()));
             device->write(actionSeqRunCmd);
             auto actionSeqRunResponse = readResponseWithLoop(device, 25, 9, false);
 
@@ -712,7 +705,7 @@ IoError RH5DG2_485_Protocol::writeRegister(Device device, const std::string& reg
                 auto [parseSuccess, _] = parseResponse(tempBuffer);
                 if (parseSuccess) {
                     logger->debug("[写响应] 寄存器: actionSeqRun, 响应: {}",
-                                  formatBytesToHex(actionSeqRunResponse.data(), actionSeqRunResponse.size()));
+                                 formatBytesToHex(actionSeqRunResponse.data(), actionSeqRunResponse.size()));
                     logger->info("写入actionSeqRun:(1)");
                 } else {
                     logger->warn("[写响应] 寄存器: actionSeqRun, 响应格式验证失败");
@@ -730,8 +723,7 @@ IoError RH5DG2_485_Protocol::writeRegister(Device device, const std::string& reg
 
             auto actionLibraryRunCmd = buildWriteCommand(REGISTER_MAP.at("actionLibraryRun"), {1});
             logger->debug("[写入命令] 寄存器: actionLibraryRun, 地址: 0x{:04X}, 命令: {}",
-                          REGISTER_MAP.at("actionLibraryRun"),
-                          formatBytesToHex(actionLibraryRunCmd.data(), actionLibraryRunCmd.size()));
+                         REGISTER_MAP.at("actionLibraryRun"), formatBytesToHex(actionLibraryRunCmd.data(), actionLibraryRunCmd.size()));
             device->write(actionLibraryRunCmd);
             auto actionLibraryRunResponse = readResponseWithLoop(device, 25, 9, false);
 
@@ -741,7 +733,7 @@ IoError RH5DG2_485_Protocol::writeRegister(Device device, const std::string& reg
                 auto [parseSuccess, _] = parseResponse(tempBuffer);
                 if (parseSuccess) {
                     logger->debug("[写响应] 寄存器: actionLibraryRun, 响应: {}",
-                                  formatBytesToHex(actionLibraryRunResponse.data(), actionLibraryRunResponse.size()));
+                                 formatBytesToHex(actionLibraryRunResponse.data(), actionLibraryRunResponse.size()));
                     logger->info("写入actionLibraryRun:(1)");
                 } else {
                     logger->warn("[写响应] 寄存器: actionLibraryRun, 响应格式验证失败");
@@ -763,8 +755,7 @@ IoError RH5DG2_485_Protocol::writeRegister(Device device, const std::string& reg
     }
 }
 
-RegisterReadResult RH5DG2_485_Protocol::readRegister(Device device, RingBuffer& ringBuffer, const std::string& reg_name,
-                                                     size_t length) {
+RegisterReadResult RH5DG2_485_Protocol::readRegister(Device device, RingBuffer& ringBuffer, const std::string& reg_name, size_t length) {
     std::ostringstream oss;
     auto logger = getLogger();
 
@@ -785,8 +776,7 @@ RegisterReadResult RH5DG2_485_Protocol::readRegister(Device device, RingBuffer& 
 
     try {
         auto cmd = buildReadCommand(address, length);
-        logger->debug("[读取命令] 寄存器: {}, 地址: 0x{:04X}, 长度: {}, 命令: {}", reg_name, address, length,
-                      formatBytesToHex(cmd.data(), cmd.size()));
+        logger->debug("[读取命令] 寄存器: {}, 地址: 0x{:04X}, 长度: {}, 命令: {}", reg_name, address, length, formatBytesToHex(cmd.data(), cmd.size()));
 
         device->write(cmd);
         // 循环读取读回复（动态长度），超时20ms
@@ -805,8 +795,7 @@ RegisterReadResult RH5DG2_485_Protocol::readRegister(Device device, RingBuffer& 
             oss << "读取" << reg_name << ":(";
             for (size_t i = 0; i < result.second.size(); ++i) {
                 oss << result.second[i];
-                if (i != result.second.size() - 1)
-                    oss << " ";
+                if (i != result.second.size() - 1) oss << " ";
             }
             oss << ")";
             logger->info(oss.str());
@@ -830,8 +819,7 @@ TouchReadResult RH5DG2_485_Protocol::readTouchData(Device device, RingBuffer& ri
 
         int touchAddress = getRegisterAddress("touchAct");
         auto readTouchCmd = buildReadCommand(touchAddress, 68);
-        logger->debug("[读取命令-触觉] 地址: 0x{:04X}, 长度: 68, 命令: {}", touchAddress,
-                      formatBytesToHex(readTouchCmd.data(), readTouchCmd.size()));
+        logger->debug("[读取命令-触觉] 地址: 0x{:04X}, 长度: 68, 命令: {}", touchAddress, formatBytesToHex(readTouchCmd.data(), readTouchCmd.size()));
 
         device->write(readTouchCmd);
         // 循环读取触觉数据回复（动态长度），超时25ms
@@ -853,8 +841,7 @@ TouchReadResult RH5DG2_485_Protocol::readTouchData(Device device, RingBuffer& ri
                 oss << finger_pair.first << ":";
                 for (size_t i = 0; i < finger_pair.second.size(); ++i) {
                     oss << finger_pair.second[i];
-                    if (i != finger_pair.second.size() - 1)
-                        oss << " ";
+                    if (i != finger_pair.second.size() - 1) oss << " ";
                 }
                 oss << " ";
             }

@@ -1,6 +1,6 @@
 #pragma once
-#include <memory>
 #include <string>
+#include <memory>
 #include <unordered_map>
 
 class SerialPortBase;
@@ -15,3 +15,4 @@ public:
 private:
     std::unordered_map<std::string, std::shared_ptr<SerialPortBase>> devices;
 };
+

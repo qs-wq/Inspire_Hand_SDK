@@ -1,12 +1,12 @@
 #pragma once
 
 #include "protocol.hpp"
-#include <chrono>
-#include <iomanip>
 #include <map>
-#include <sstream>
 #include <string>
+#include <sstream>
+#include <iomanip>
 #include <thread>
+#include <chrono>
 
 /**
  * 因时 EG-5CD1 电动夹爪 RS485 自定义协议（见 src/document/夹爪485寄存器规则.md）
@@ -22,8 +22,8 @@ public:
     std::pair<bool, TouchDataResult> parseTouchData(RingBuffer& ringBuffer, int version) override;
 
     IoError writeRegister(Device device, const std::string& reg_name, const std::vector<int>& values) override;
-    RegisterReadResult readRegister(Device device, RingBuffer& ringBuffer, const std::string& reg_name,
-                                    size_t length) override;
+    RegisterReadResult readRegister(
+        Device device, RingBuffer& ringBuffer, const std::string& reg_name, size_t length) override;
     TouchReadResult readTouchData(Device device, RingBuffer& ringBuffer, int version) override;
 
 protected:
@@ -36,6 +36,6 @@ protected:
     std::vector<uint8_t> extractFromRingBuffer(const RingBuffer& ringBuffer, size_t startOffset, size_t length) const;
     std::string formatBytesToHex(const uint8_t* data, size_t length) const;
 
-    std::vector<uint8_t> readResponseWithLoop(Device device, int timeout_ms, size_t min_bytes = 8,
-                                              bool is_read_response = false) const;
+    std::vector<uint8_t> readResponseWithLoop(
+        Device device, int timeout_ms, size_t min_bytes = 8, bool is_read_response = false) const;
 };

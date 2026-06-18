@@ -9,21 +9,23 @@
 #include <vector>
 
 #include "device_interface_types.hpp"
-#include "device_worker.hpp"
 #include "interface_adapter.hpp"
 #include "protocol.hpp"
-#include "rclcpp/rclcpp.hpp"
 #include "register_io_backend.hpp"
 #include "ring_buffer.hpp"
 #include "serial_port.hpp"
+#include "rclcpp/rclcpp.hpp"
 
 /**
  * @brief 设备节点：定时循环读写寄存器；ROS 消息/服务类型由 InterfaceAdapter 按产品线实现。
  */
 class RegisterController : public rclcpp::Node, public IRegisterIoBackend {
 public:
-    RegisterController(const std::string& node_name, const DeviceNodeConfig& config,
-                       std::shared_ptr<SerialPortBase> device, std::shared_ptr<Protocol> protocol);
+    RegisterController(
+        const std::string& node_name,
+        const DeviceNodeConfig& config,
+        std::shared_ptr<SerialPortBase> device,
+        std::shared_ptr<Protocol> protocol);
 
     ~RegisterController() override;
 
@@ -36,15 +38,15 @@ public:
     // --- IRegisterIoBackend ---
     rclcpp::Node* ioNode() override { return this; }
 
-    rclcpp::CallbackGroup::SharedPtr ioServiceCallbackGroup() override { return service_cb_group_; }
+    RegisterReadResult ioReadRegister(
+        const std::string& register_name, size_t length = 0) override;
 
-    RegisterReadResult ioReadRegister(const std::string& register_name, size_t length = 0) override;
-
-    IoError ioWriteRegister(const std::string& register_name, const std::vector<int>& values) override;
-
-    SequenceResult ioWriteSequence(const std::vector<WriteStep>& steps) override;
+    IoError ioWriteRegister(
+        const std::string& register_name, const std::vector<int>& values) override;
 
     TouchReadResult ioReadTouchData(int version) override;
+
+    void ioPauseTimer(int duration_ms) override;
 
     int32_t ioHandId() const override;
 
@@ -71,18 +73,13 @@ protected:
 private:
     std::unique_ptr<InterfaceAdapter> interface_adapter_;
 
-    // 每设备串口事务串行化执行器：所有读写均经此单线程顺序执行，保证事务原子。
-    std::unique_ptr<DeviceWorker> worker_;
-
-    // 回调组：定时器与服务/订阅分组，使二者可在多线程执行器下并行进入。
-    rclcpp::CallbackGroup::SharedPtr timer_cb_group_;
-    rclcpp::CallbackGroup::SharedPtr service_cb_group_;
-
     rclcpp::TimerBase::SharedPtr control_timer_;
     std::atomic<bool> running_{false};
 
     void timerCallback();
+    void applyInitialRegisters();
+    void pauseTimer(int duration_ms = 3);
 
-    // 定时读背压：上一次读任务尚未完成时跳过本次提交，避免队列堆积。
-    std::atomic<bool> read_in_flight_{false};
+    std::atomic<bool> timer_paused_{false};
+    std::chrono::steady_clock::time_point timer_resume_time_;
 };

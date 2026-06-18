@@ -10,9 +10,11 @@
   <buildtool_depend>ament_cmake</buildtool_depend>
 
   <depend>rclcpp</depend>
+  <depend>ament_index_cpp</depend>
   <depend>std_msgs</depend>
   <depend>rh5dg2_interfaces</depend>
   <depend>rh56f1_interfaces</depend>
+  <depend>rh56dfx_interfaces</depend>
   <depend>eg5cd1_interfaces</depend>
   <depend>inspire_serial_core</depend>
 

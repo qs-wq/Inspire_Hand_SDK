@@ -5,10 +5,12 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(ament_cmake REQUIRED)
+find_package(ament_index_cpp REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(rh5dg2_interfaces REQUIRED)
 find_package(rh56f1_interfaces REQUIRED)
+find_package(rh56dfx_interfaces REQUIRED)
 find_package(eg5cd1_interfaces REQUIRED)
 
 # ---------------------------------------------------------------------------
@@ -24,6 +26,7 @@ add_executable(inspire_control_node
     src/interface_adapter_factory.cpp
     src/RH5DG2_interface_adapter.cpp
     src/RH56F1_interface_adapter.cpp
+    src/RH56DFX_interface_adapter.cpp
     src/EG5CD1_interface_adapter.cpp
     src/inspire_controller_factory.cpp
     src/inspire_control_node.cpp
@@ -34,10 +37,12 @@ target_include_directories(inspire_control_node PRIVATE
 )
 
 ament_target_dependencies(inspire_control_node
+    ament_index_cpp
     rclcpp
     std_msgs
     rh5dg2_interfaces
     rh56f1_interfaces
+    rh56dfx_interfaces
     eg5cd1_interfaces
 )
 

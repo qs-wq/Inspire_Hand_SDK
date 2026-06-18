@@ -22,20 +22,27 @@ public:
 
     // 读/写寄存器（实现 CAN-FD 下的数据长度补齐与拆帧逻辑）
     IoError writeRegister(Device device, const std::string& reg_name, const std::vector<int>& values) override;
-    RegisterReadResult readRegister(Device device, RingBuffer& ringBuffer, const std::string& reg_name,
-                                    size_t length) override;
+    RegisterReadResult readRegister(
+        Device device,
+        RingBuffer& ringBuffer,
+        const std::string& reg_name,
+        size_t length) override;
 
     // 触觉数据读取（内部按 68 字节逻辑长度拼接两帧：64B + 4B）
-    TouchReadResult readTouchData(Device device, RingBuffer& ringBuffer, int version) override;
+    TouchReadResult readTouchData(
+        Device device,
+        RingBuffer& ringBuffer,
+        int version) override;
 
 protected:
     /**
      * @brief 将请求字节长度补齐到最近的合法 CAN-FD 字节长度
      * @param requested_bytes 请求的字节长度
      * @return 补齐后的合法字节长度（如果已经是合法长度则返回原值）
-     *
+     * 
      * 合法字节列表：[0, 1, 2, 3, 4, 5, 6, 7, 8, 12, 16, 20, 24, 32, 48, 64]
      * 补齐规则：向上补齐到最近的合法字节（例如：10 → 12, 26 → 32）
      */
     size_t adjustToValidCanfdLength(size_t requested_bytes) const;
 };
+

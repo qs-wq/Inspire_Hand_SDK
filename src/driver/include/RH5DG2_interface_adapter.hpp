@@ -10,7 +10,12 @@ public:
     void wireTopics() override;
     void wireServices() override;
 
-    void publishRegisterData(const TopicConfig& topic_config, const std::vector<int>& values) override;
+    void publishRegisterData(
+        const TopicConfig& topic_config,
+        const std::vector<int>& values) override;
 
-    void publishTouchData(const TopicConfig& topic_config, const TouchDataResult& touchData, int version) override;
+    void publishTouchData(
+        const TopicConfig& topic_config,
+        const TouchDataResult& touchData,
+        int version) override;
 };

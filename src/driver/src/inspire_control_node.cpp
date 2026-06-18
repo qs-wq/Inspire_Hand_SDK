@@ -1,15 +1,15 @@
+#include <rclcpp/rclcpp.hpp>
+#include <memory>
+#include <vector>
+#include <csignal>
+#include <atomic>
+#include <fstream>
+#include <ament_index_cpp/get_package_share_directory.hpp>
+#include "register_controller.hpp"
+#include "inspire_controller_factory.hpp"
 #include "config_loader.hpp"
 #include "device_manager.hpp"
-#include "inspire_controller_factory.hpp"
 #include "logger_manager.hpp"
-#include "register_controller.hpp"
-#include <ament_index_cpp/get_package_share_directory.hpp>
-#include <atomic>
-#include <csignal>
-#include <fstream>
-#include <memory>
-#include <rclcpp/rclcpp.hpp>
-#include <vector>
 
 std::atomic<bool> g_running(true);
 
@@ -31,10 +31,12 @@ int main(int argc, char** argv) {
         std::string controller_config_path;
         std::string device_name;
 
-        device_config_path = ament_index_cpp::get_package_share_directory("inspire_control_ros2") +
-                             "/config/device_protocol_config.yaml";
-        controller_config_path = ament_index_cpp::get_package_share_directory("inspire_control_ros2") +
-                                 "/config/ros2_controller_config.yaml";
+        device_config_path =
+            ament_index_cpp::get_package_share_directory("inspire_control_ros2") +
+            "/config/device_protocol_config.yaml";
+        controller_config_path =
+            ament_index_cpp::get_package_share_directory("inspire_control_ros2") +
+            "/config/ros2_controller_config.yaml";
 
         for (int i = 1; i < argc; ++i) {
             if (i + 1 < argc) {
@@ -80,8 +82,8 @@ int main(int argc, char** argv) {
             device_manager.addDevice(port, protocol, baudRate);
             device_protocols[port] = protocol;
 
-            logger->info("设备已添加: {} ({}, 波特率: {}, Hand_ID: {})", deviceInfo.name, port, baudRate,
-                         deviceInfo.hand_id);
+            logger->info("设备已添加: {} ({}, 波特率: {}, Hand_ID: {})",
+                         deviceInfo.name, port, baudRate, deviceInfo.hand_id);
         }
 
         std::vector<std::shared_ptr<RegisterController>> controllers;
@@ -89,8 +91,8 @@ int main(int argc, char** argv) {
         if (!device_name.empty()) {
             logger->info("单设备模式：启动设备节点 {}", device_name);
 
-            auto all_configs =
-                InspireControllerFactory::loadDeviceNodeConfigs(controller_config_path, device_config_path);
+            auto all_configs = InspireControllerFactory::loadDeviceNodeConfigs(
+                controller_config_path, device_config_path);
             DeviceNodeConfig target_config;
             bool found = false;
 
@@ -106,13 +108,19 @@ int main(int argc, char** argv) {
                 throw std::runtime_error("未找到设备配置: " + device_name);
             }
 
-            auto controller = InspireControllerFactory::createDeviceNode(target_config, device_manager,
-                                                                         device_protocols, device_config_path);
+            auto controller = InspireControllerFactory::createDeviceNode(
+                target_config,
+                device_manager,
+                device_protocols,
+                device_config_path);
             controllers.push_back(controller);
         } else {
             logger->info("多设备模式：启动所有设备节点");
-            controllers = InspireControllerFactory::createAllDeviceNodes(controller_config_path, device_manager,
-                                                                         device_protocols, device_config_path);
+            controllers = InspireControllerFactory::createAllDeviceNodes(
+                controller_config_path,
+                device_manager,
+                device_protocols,
+                device_config_path);
         }
 
         logger->info("共创建 {} 个设备节点", controllers.size());

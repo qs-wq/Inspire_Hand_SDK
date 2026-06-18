@@ -2,8 +2,8 @@
 #include "logger_manager.hpp"
 #include "protocol_factory.hpp"
 
-#include <algorithm>
 #include <sstream>
+#include <algorithm>
 
 // CAN-FD 合法字节长度列表
 static const std::vector<size_t> VALID_CANFD_LENGTHS = {0, 1, 2, 3, 4, 5, 6, 7, 8, 12, 16, 20, 24, 32, 48, 64};
@@ -11,16 +11,15 @@ static const std::vector<size_t> VALID_CANFD_LENGTHS = {0, 1, 2, 3, 4, 5, 6, 7, 
 // 将请求字节长度补齐到最近的合法 CAN-FD 字节长度
 size_t RH56F1_canfd_Protocol::adjustToValidCanfdLength(size_t requested_bytes) const {
     // 如果请求长度已经是合法长度，直接返回
-    if (std::find(VALID_CANFD_LENGTHS.begin(), VALID_CANFD_LENGTHS.end(), requested_bytes) !=
-        VALID_CANFD_LENGTHS.end()) {
+    if (std::find(VALID_CANFD_LENGTHS.begin(), VALID_CANFD_LENGTHS.end(), requested_bytes) != VALID_CANFD_LENGTHS.end()) {
         return requested_bytes;
     }
-
+    
     // 如果请求长度超过最大值64，返回64（分帧逻辑会在上层处理）
     if (requested_bytes > 64) {
         return 64;
     }
-
+    
     // 向上补齐到最近的合法字节长度
     for (size_t valid_len : VALID_CANFD_LENGTHS) {
         if (valid_len >= requested_bytes) {
@@ -40,13 +39,12 @@ std::vector<uint8_t> RH56F1_canfd_Protocol::buildWriteCommand(int address, const
     }
 
     std::vector<uint8_t> cmd = {
-        0xEB,
-        0x90,                                       // 帧头
-        device_id_,                                 // 设备ID（来自配置 Hand_ID）
-        static_cast<uint8_t>(bytes + 3),            // 数据长度 = Register_Length + 3
-        0x12,                                       // 写入命令
-        static_cast<uint8_t>(address & 0xFF),       // 地址低字节
-        static_cast<uint8_t>((address >> 8) & 0xFF) // 地址高字节
+        0xEB, 0x90,           // 帧头
+        device_id_,           // 设备ID（来自配置 Hand_ID）
+        static_cast<uint8_t>(bytes + 3), // 数据长度 = Register_Length + 3
+        0x12,                 // 写入命令
+        static_cast<uint8_t>(address & 0xFF),         // 地址低字节
+        static_cast<uint8_t>((address >> 8) & 0xFF)   // 地址高字节
     };
 
     // 写入数据（每个值两个字节，小端序）
@@ -64,8 +62,7 @@ std::vector<uint8_t> RH56F1_canfd_Protocol::buildWriteCommand(int address, const
     return cmd;
 }
 
-IoError RH56F1_canfd_Protocol::writeRegister(Device device, const std::string& reg_name,
-                                             const std::vector<int>& values) {
+IoError RH56F1_canfd_Protocol::writeRegister(Device device, const std::string& reg_name, const std::vector<int>& values) {
     auto logger = getLogger();
     std::ostringstream oss;
 
@@ -82,6 +79,8 @@ IoError RH56F1_canfd_Protocol::writeRegister(Device device, const std::string& r
         return IoError::Ok;
     }
 
+    // 总逻辑字节长度
+    const size_t total_bytes = values.size() * 2;
     size_t remaining_values = values.size();
     size_t value_index = 0;
     int current_address = base_address;
@@ -97,10 +96,10 @@ IoError RH56F1_canfd_Protocol::writeRegister(Device device, const std::string& r
         if (remaining_bytes > 64) {
             frame_bytes = 64;
         } else {
-            frame_bytes = remaining_bytes; // 直接使用剩余字节数，不补全
+            frame_bytes = remaining_bytes;  // 直接使用剩余字节数，不补全
         }
 
-        size_t frame_value_count = frame_bytes / 2; // 本帧实际需要的值数量
+        size_t frame_value_count = frame_bytes / 2;  // 本帧实际需要的值数量
 
         // 构造本帧写入数据（不需要填充）
         std::vector<int> frame_values;
@@ -112,16 +111,18 @@ IoError RH56F1_canfd_Protocol::writeRegister(Device device, const std::string& r
         try {
             auto cmd = buildWriteCommand(current_address, frame_values);
 
-            logger->debug("[CANFD-写入命令] 寄存器: {}, 地址: 0x{:04X}, 帧数据字节: {}, 命令: {}", reg_name,
-                          current_address, frame_bytes, formatBytesToHex(cmd.data(), cmd.size()));
+            logger->debug("[CANFD-写入命令] 寄存器: {}, 地址: 0x{:04X}, 帧数据字节: {}, 命令: {}",
+                           reg_name, current_address, frame_bytes,
+                           formatBytesToHex(cmd.data(), cmd.size()));
 
             device->write(cmd);
 
             // 每帧均需要确认写入应答
             auto writeResponse = readResponseWithLoop(device, 25, 9, false);
             if (!writeResponse.empty()) {
-                logger->debug("[CANFD-写响应] 寄存器: {}, 地址: 0x{:04X}, 响应: {}", reg_name, current_address,
-                              formatBytesToHex(writeResponse.data(), writeResponse.size()));
+                logger->debug("[CANFD-写响应] 寄存器: {}, 地址: 0x{:04X}, 响应: {}",
+                               reg_name, current_address,
+                               formatBytesToHex(writeResponse.data(), writeResponse.size()));
             } else {
                 logger->error("[CANFD-写响应] 寄存器: {}, 地址: 0x{:04X}, 响应为空", reg_name, current_address);
                 return IoError::Timeout;
@@ -154,8 +155,7 @@ IoError RH56F1_canfd_Protocol::writeRegister(Device device, const std::string& r
         oss << "[CANFD] 写入" << reg_name << ":(";
         for (size_t i = 0; i < values.size(); ++i) {
             oss << values[i];
-            if (i != values.size() - 1)
-                oss << " ";
+            if (i != values.size() - 1) oss << " ";
         }
         oss << ")";
         logger->info(oss.str());
@@ -171,8 +171,8 @@ IoError RH56F1_canfd_Protocol::writeRegister(Device device, const std::string& r
             std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
             auto saveCmd = buildWriteCommand(REGISTER_MAP.at("save"), {1});
-            logger->debug("[CANFD-写入命令] 寄存器: save, 地址: 0x{:04X}, 命令: {}", REGISTER_MAP.at("save"),
-                          formatBytesToHex(saveCmd.data(), saveCmd.size()));
+            logger->debug("[CANFD-写入命令] 寄存器: save, 地址: 0x{:04X}, 命令: {}",
+                           REGISTER_MAP.at("save"), formatBytesToHex(saveCmd.data(), saveCmd.size()));
 
             device->write(saveCmd);
             auto saveResponse = readResponseWithLoop(device, 25, 9, false);
@@ -183,7 +183,7 @@ IoError RH56F1_canfd_Protocol::writeRegister(Device device, const std::string& r
                 auto [parseSuccess, _] = parseResponse(tempBuffer);
                 if (parseSuccess) {
                     logger->debug("[CANFD-写响应] 寄存器: save, 响应: {}",
-                                  formatBytesToHex(saveResponse.data(), saveResponse.size()));
+                                   formatBytesToHex(saveResponse.data(), saveResponse.size()));
                     logger->info("[CANFD] 写入save:(1)");
                 } else {
                     logger->warn("[CANFD-写响应] 寄存器: save, 响应格式验证失败");
@@ -200,8 +200,8 @@ IoError RH56F1_canfd_Protocol::writeRegister(Device device, const std::string& r
 
             auto actionSeqRunCmd = buildWriteCommand(REGISTER_MAP.at("actionSeqRun"), {1});
             logger->debug("[CANFD-写入命令] 寄存器: actionSeqRun, 地址: 0x{:04X}, 命令: {}",
-                          REGISTER_MAP.at("actionSeqRun"),
-                          formatBytesToHex(actionSeqRunCmd.data(), actionSeqRunCmd.size()));
+                           REGISTER_MAP.at("actionSeqRun"),
+                           formatBytesToHex(actionSeqRunCmd.data(), actionSeqRunCmd.size()));
 
             device->write(actionSeqRunCmd);
             auto actionSeqRunResponse = readResponseWithLoop(device, 25, 9, false);
@@ -212,7 +212,7 @@ IoError RH56F1_canfd_Protocol::writeRegister(Device device, const std::string& r
                 auto [parseSuccess, _] = parseResponse(tempBuffer);
                 if (parseSuccess) {
                     logger->debug("[CANFD-写响应] 寄存器: actionSeqRun, 响应: {}",
-                                  formatBytesToHex(actionSeqRunResponse.data(), actionSeqRunResponse.size()));
+                                   formatBytesToHex(actionSeqRunResponse.data(), actionSeqRunResponse.size()));
                     logger->info("[CANFD] 写入actionSeqRun:(1)");
                 } else {
                     logger->warn("[CANFD-写响应] 寄存器: actionSeqRun, 响应格式验证失败");
@@ -231,8 +231,11 @@ IoError RH56F1_canfd_Protocol::writeRegister(Device device, const std::string& r
     return all_ok ? IoError::Ok : IoError::BadResponse;
 }
 
-RegisterReadResult RH56F1_canfd_Protocol::readRegister(Device device, RingBuffer& ringBuffer,
-                                                       const std::string& reg_name, size_t length) {
+RegisterReadResult RH56F1_canfd_Protocol::readRegister(
+    Device device,
+    RingBuffer& ringBuffer,
+    const std::string& reg_name,
+    size_t length) {
 
     auto logger = getLogger();
     std::ostringstream oss;
@@ -276,13 +279,13 @@ RegisterReadResult RH56F1_canfd_Protocol::readRegister(Device device, RingBuffer
         } else {
             logical_frame_bytes = remaining_bytes;
         }
-
+        
         // 将请求字节数补齐到最近的合法 CAN-FD 字节长度
         size_t frame_bytes = adjustToValidCanfdLength(logical_frame_bytes);
-
+        
         if (frame_bytes != logical_frame_bytes) {
-            logger->debug("[CANFD-长度补齐] 寄存器: {}, 逻辑请求: {} 字节, 补齐到: {} 字节", reg_name,
-                          logical_frame_bytes, frame_bytes);
+            logger->debug("[CANFD-长度补齐] 寄存器: {}, 逻辑请求: {} 字节, 补齐到: {} 字节",
+                          reg_name, logical_frame_bytes, frame_bytes);
         }
 
         auto cmd = buildReadCommand(current_address, frame_bytes);
@@ -295,8 +298,9 @@ RegisterReadResult RH56F1_canfd_Protocol::readRegister(Device device, RingBuffer
 
             auto response = readResponseWithLoop(device, 25, 8, true);
             if (!response.empty()) {
-                logger->debug("[CANFD-原始响应] 寄存器: {}, 地址: 0x{:04X}, 响应: {}", reg_name, current_address,
-                              formatBytesToHex(response.data(), response.size()));
+                logger->debug("[CANFD-原始响应] 寄存器: {}, 地址: 0x{:04X}, 响应: {}",
+                               reg_name, current_address,
+                               formatBytesToHex(response.data(), response.size()));
             } else {
                 logger->error("[CANFD] 读取寄存器失败：{} (地址 0x{:04X}, 无响应)", reg_name, current_address);
                 return {IoError::Timeout, {}};
@@ -325,8 +329,8 @@ RegisterReadResult RH56F1_canfd_Protocol::readRegister(Device device, RingBuffer
 
             // 打印实际使用的值个数（而不是补齐后的个数）
             if (frame_values.size() != used_values) {
-                logger->debug("[CANFD] 解析读寄存器回复: 补齐后 {} 个值, 实际使用 {} 个值", frame_values.size(),
-                              used_values);
+                logger->debug("[CANFD] 解析读寄存器回复: 补齐后 {} 个值, 实际使用 {} 个值", 
+                              frame_values.size(), used_values);
             } else {
                 logger->debug("[CANFD] 成功解析读寄存器回复: {} 个值", used_values);
             }
@@ -349,8 +353,7 @@ RegisterReadResult RH56F1_canfd_Protocol::readRegister(Device device, RingBuffer
     oss << "[CANFD] 读取" << reg_name << ":(";
     for (size_t i = 0; i < all_values.size(); ++i) {
         oss << all_values[i];
-        if (i != all_values.size() - 1)
-            oss << " ";
+        if (i != all_values.size() - 1) oss << " ";
     }
     oss << ")";
     logger->info(oss.str());
@@ -359,7 +362,10 @@ RegisterReadResult RH56F1_canfd_Protocol::readRegister(Device device, RingBuffer
 }
 
 // 触觉数据读取（逻辑长度固定 68 字节），内部按照 64B + 4B 拆两帧
-TouchReadResult RH56F1_canfd_Protocol::readTouchData(Device device, RingBuffer& ringBuffer, int version) {
+TouchReadResult RH56F1_canfd_Protocol::readTouchData(
+    Device device,
+    RingBuffer& ringBuffer,
+    int version) {
 
     auto logger = getLogger();
     std::ostringstream oss;
@@ -373,7 +379,7 @@ TouchReadResult RH56F1_canfd_Protocol::readTouchData(Device device, RingBuffer& 
         ringBuffer.clear();
 
         const int touchAddress = getRegisterAddress("touchAct");
-        const size_t logical_bytes = 68; // 逻辑触觉数据总长度
+        const size_t logical_bytes = 68;   // 逻辑触觉数据总长度
 
         // 使用与 readRegister 相同的拆帧规则读取原始字节
         size_t remaining_bytes = logical_bytes;
@@ -389,26 +395,26 @@ TouchReadResult RH56F1_canfd_Protocol::readTouchData(Device device, RingBuffer& 
             } else {
                 logical_frame_bytes = remaining_bytes;
             }
-
+            
             // 将请求字节数补齐到最近的合法 CAN-FD 字节长度
             size_t frame_bytes = adjustToValidCanfdLength(logical_frame_bytes);
-
+            
             if (frame_bytes != logical_frame_bytes) {
-                logger->debug("[CANFD-长度补齐-触觉] 逻辑请求: {} 字节, 补齐到: {} 字节", logical_frame_bytes,
-                              frame_bytes);
+                logger->debug("[CANFD-长度补齐-触觉] 逻辑请求: {} 字节, 补齐到: {} 字节",
+                              logical_frame_bytes, frame_bytes);
             }
 
             auto readTouchCmd = buildReadCommand(current_address, frame_bytes);
             logger->debug("[CANFD-读取命令-触觉] 地址: 0x{:04X}, 逻辑剩余: {} 字节, 实际发送: {} 字节, 命令: {}",
-                          current_address, remaining_bytes, frame_bytes,
-                          formatBytesToHex(readTouchCmd.data(), readTouchCmd.size()));
+                           current_address, remaining_bytes, frame_bytes,
+                           formatBytesToHex(readTouchCmd.data(), readTouchCmd.size()));
 
             device->write(readTouchCmd);
             auto resp = readResponseWithLoop(device, 25, 8, true);
 
             if (!resp.empty()) {
-                logger->debug("[CANFD-原始响应-触觉] 地址: 0x{:04X}, 响应: {}", current_address,
-                              formatBytesToHex(resp.data(), resp.size()));
+                logger->debug("[CANFD-原始响应-触觉] 地址: 0x{:04X}, 响应: {}",
+                               current_address, formatBytesToHex(resp.data(), resp.size()));
             } else {
                 logger->error("[CANFD-触觉] 读取失败：地址 0x{:04X} 无响应", current_address);
                 return {IoError::Timeout, {}};
@@ -429,13 +435,13 @@ TouchReadResult RH56F1_canfd_Protocol::readTouchData(Device device, RingBuffer& 
             const uint8_t command = resp[4];
 
             if (device_id_ != 0 && hands_id != device_id_) {
-                logger->error("[CANFD-触觉] Hands_ID 不匹配: 期望 {}, 实际 {}, 地址 0x{:04X}", device_id_, hands_id,
-                              current_address);
+                logger->error("[CANFD-触觉] Hands_ID 不匹配: 期望 {}, 实际 {}, 地址 0x{:04X}",
+                              device_id_, hands_id, current_address);
                 return {IoError::BadResponse, {}};
             }
             if (command != 0x11) {
-                logger->error("[CANFD-触觉] 命令类型错误: 0x{:02X}, 期望 0x11, 地址 0x{:04X}", command,
-                              current_address);
+                logger->error("[CANFD-触觉] 命令类型错误: 0x{:02X}, 期望 0x11, 地址 0x{:04X}",
+                              command, current_address);
                 return {IoError::BadResponse, {}};
             }
             if (data_length < 3) {
@@ -446,8 +452,8 @@ TouchReadResult RH56F1_canfd_Protocol::readTouchData(Device device, RingBuffer& 
             const size_t register_length = static_cast<size_t>(data_length) - 3;
             const size_t expected_frame_size = 8 + register_length;
             if (resp.size() < expected_frame_size) {
-                logger->error("[CANFD-触觉] 响应长度不足: 实际 {}, 期望 >= {}, 地址 0x{:04X}", resp.size(),
-                              expected_frame_size, current_address);
+                logger->error("[CANFD-触觉] 响应长度不足: 实际 {}, 期望 >= {}, 地址 0x{:04X}",
+                              resp.size(), expected_frame_size, current_address);
                 return {IoError::BadResponse, {}};
             }
 
@@ -464,8 +470,8 @@ TouchReadResult RH56F1_canfd_Protocol::readTouchData(Device device, RingBuffer& 
         }
 
         if (raw_bytes.size() < logical_bytes) {
-            logger->error("[CANFD-触觉] 合并后的数据长度不足: 实际 {} 字节, 期望 {} 字节", raw_bytes.size(),
-                          logical_bytes);
+            logger->error("[CANFD-触觉] 合并后的数据长度不足: 实际 {} 字节, 期望 {} 字节",
+                          raw_bytes.size(), logical_bytes);
             return {IoError::BadResponse, {}};
         }
 
@@ -515,12 +521,14 @@ TouchReadResult RH56F1_canfd_Protocol::readTouchData(Device device, RingBuffer& 
                 result.palmResults["palm_data_" + std::to_string(j + 1)] = val;
             }
         } else {
-            logger->warn("[CANFD-触觉] 掌心数据长度不足 (需要 {} 字节，实际 {} 字节)", palm_data_length,
-                         raw_bytes.size() > palm_start_idx ? (raw_bytes.size() - palm_start_idx) : 0);
+            logger->warn("[CANFD-触觉] 掌心数据长度不足 (需要 {} 字节，实际 {} 字节)",
+                         palm_data_length, raw_bytes.size() > palm_start_idx
+                             ? (raw_bytes.size() - palm_start_idx)
+                             : 0);
         }
 
-        logger->debug("[CANFD-触觉] 成功解析触觉数据: {} 个手指, {} 个掌心数据点", result.fingerResults.size(),
-                      result.palmResults.size());
+        logger->debug("[CANFD-触觉] 成功解析触觉数据: {} 个手指, {} 个掌心数据点",
+                      result.fingerResults.size(), result.palmResults.size());
 
         // 打印概览日志
         oss << "[CANFD] 读取touchAct:(";
@@ -528,8 +536,7 @@ TouchReadResult RH56F1_canfd_Protocol::readTouchData(Device device, RingBuffer& 
             oss << finger_pair.first << ":";
             for (size_t i = 0; i < finger_pair.second.size(); ++i) {
                 oss << finger_pair.second[i];
-                if (i != finger_pair.second.size() - 1)
-                    oss << " ";
+                if (i != finger_pair.second.size() - 1) oss << " ";
             }
             oss << " ";
         }
@@ -556,3 +563,4 @@ TouchReadResult RH56F1_canfd_Protocol::readTouchData(Device device, RingBuffer& 
 //     type: RH56F1_canfd
 // 来选择使用本协议。
 REGISTER_PROTOCOL("RH56F1_canfd", RH56F1_canfd_Protocol);
+

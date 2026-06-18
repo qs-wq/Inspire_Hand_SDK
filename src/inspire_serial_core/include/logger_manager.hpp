@@ -1,22 +1,22 @@
 #pragma once
 
-#include "spdlog/sinks/rotating_file_sink.h"
-#include "spdlog/sinks/stdout_color_sinks.h"
-#include "spdlog/spdlog.h"
+#include <string>
 #include <memory>
 #include <mutex>
-#include <string>
-#include <thread>
 #include <vector>
+#include <thread>
+#include "spdlog/spdlog.h"
+#include "spdlog/sinks/stdout_color_sinks.h"
+#include "spdlog/sinks/rotating_file_sink.h"
 
 // 前向声明
 namespace YAML {
-class Node;
+    class Node;
 }
 
 /**
  * @brief 日志管理器类
- *
+ * 
  * 提供统一的日志管理功能：
  * - 支持日志文件轮转（按大小和数量）
  * - 支持动态调整日志级别
@@ -29,12 +29,12 @@ public:
      * @brief 日志配置结构
      */
     struct LogConfig {
-        std::string level = "INFO";                                   // 日志级别：DEBUG/INFO/WARN/ERROR
-        std::string file_path = "logs/app.log";                       // 日志文件路径
-        bool console_enable = true;                                   // 是否输出到控制台
-        bool file_enable = true;                                      // 是否输出到文件
-        size_t max_file_size = static_cast<size_t>(10) * 1024 * 1024; // 单个日志文件最大大小（字节），默认10MB
-        size_t max_files = 5;                                         // 保留的日志文件数量，默认5个
+        std::string level = "INFO";              // 日志级别：DEBUG/INFO/WARN/ERROR
+        std::string file_path = "logs/app.log";  // 日志文件路径
+        bool console_enable = true;              // 是否输出到控制台
+        bool file_enable = true;                 // 是否输出到文件
+        size_t max_file_size = 10 * 1024 * 1024; // 单个日志文件最大大小（字节），默认10MB
+        size_t max_files = 5;                    // 保留的日志文件数量，默认5个
     };
 
     /**
@@ -109,16 +109,19 @@ public:
 private:
     // 将字符串转换为spdlog日志级别
     static spdlog::level::level_enum parseLogLevel(const std::string& level_str);
-
+    
     // 创建日志sink
-    static void createSinks(const LogConfig& config, std::vector<spdlog::sink_ptr>& sinks);
-
+    static void createSinks(const LogConfig& config, 
+                           std::vector<spdlog::sink_ptr>& sinks);
+    
     // 更新默认logger
-    static void updateLogger(const std::vector<spdlog::sink_ptr>& sinks, spdlog::level::level_enum level);
-
-    static std::mutex mutex_;         // 保护日志配置的互斥锁
-    static LogConfig current_config_; // 当前配置
+    static void updateLogger(const std::vector<spdlog::sink_ptr>& sinks, 
+                            spdlog::level::level_enum level);
+    
+    static std::mutex mutex_;  // 保护日志配置的互斥锁
+    static LogConfig current_config_;  // 当前配置
 };
 
 // 便捷函数：获取默认日志对象
 std::shared_ptr<spdlog::logger> getLogger();
+

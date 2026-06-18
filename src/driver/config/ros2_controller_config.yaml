@@ -1,82 +1,103 @@
-# EG-5CD1 夹爪 ROS2 节点示例（interfaces_profile 由 device_protocol 的 protocol.type 推导为 EG5CD1）
+# RH56DFX ROS2 控制器示例配置（与 ros2_controller_config.yaml 内容一致，便于 --controller-config 显式指定）
+# 6 自由度；服务项与 RH56F1 对齐（协议已支持的子集）
+# RH56DFX 不支持 RH5DG2 的 defaultSpeedSet/defaultForceSet 持久化寄存器；
+# 使用 initial_registers 在驱动启动时写入 speedSet / forceSet（效果类似 RH5 默认速度/力）。
 
 device_nodes:
-  - device: gripper_main
+  - device: hand_left
     update_rate: 50
+
     publish_header:
-      frame_id: "gripper_link"
+      frame_id: "hand_left"
+
+    joint_names:
+      - "hand_left/joint_0"
+      - "hand_left/joint_1"
+      - "hand_left/joint_2"
+      - "hand_left/joint_3"
+      - "hand_left/joint_4"
+      - "hand_left/joint_5"
+
+    # 启动时写入速度与力（6 关节，范围通常 0-1000）；可按需修改
+    initial_registers:
+      - register_name: "speedSet"
+        values: [500, 500, 500, 500, 500, 500]
+      - register_name: "forceSet"
+        values: [500, 500, 500, 500, 500, 500]
 
     topics:
-      - name: gripper_state
+      - name: angle_control
         registers:
-          read: ["gripperStatusBlock"]
-        state_topic: "/gripper/state"
+          write: ["angleSet"]
+          read: ["angleAct"]
+        command_topic: "/hand_left/angle_set"
+        state_topic: "/hand_left/angle_actual"
 
-      - name: open_len_set
-        registers:
-          write: ["openLenSet"]
-        command_topic: "/gripper/open_len_set"
-
-      - name: speed_set
-        registers:
-          write: ["speedSet"]
-        command_topic: "/gripper/speed_set"
-
-      - name: force_set
+      - name: force_control
         registers:
           write: ["forceSet"]
-        command_topic: "/gripper/force_set"
+          read: ["forceAct"]
+        command_topic: "/hand_left/force_set"
+        state_topic: "/hand_left/force_actual"
 
-      - name: catch_mode_set
+      # 速度控制话题
+      - name: speed_control
         registers:
-          write: ["catchModeSet"]
-        command_topic: "/gripper/catch_mode_set"
+          write: ["speedSet"]
+        command_topic: "/hand_left/speed_set"
 
     services:
-      - register_name: "clearError"
-        set_service_name: "/gripper/clear_error"
+      - register_name: "angleSet"
+        set_service_name: "/hand_left/set_angle"
         is_write_register: true
 
-      - register_name: "save"
-        set_service_name: "/gripper/save_params"
+      - register_name: "forceSet"
+        set_service_name: "/hand_left/set_force"
         is_write_register: true
 
-      - register_name: "defaultPar"
-        set_service_name: "/gripper/restore_default"
+      - register_name: "speedSet"
+        set_service_name: "/hand_left/set_speed"
         is_write_register: true
 
-      - register_name: "stop"
-        set_service_name: "/gripper/stop"
+      # 默认速度设置服务（RH56DFX 映射到 speedSet，与 RH5DG2 服务名一致）
+      - register_name: "defaultSpeedSet"
+        set_service_name: "/hand_left/set_defaultSpeed"
         is_write_register: true
 
-      - register_name: "catchModeClose"
-        set_service_name: "/gripper/touch_close"
-        is_write_register: true
-
-      - register_name: "catchModeOpen"
-        set_service_name: "/gripper/touch_open"
+      # 默认力保护设置服务（RH56DFX 映射到 forceSet，与 RH5DG2 服务名一致）
+      - register_name: "defaultForceSet"
+        set_service_name: "/hand_left/set_defaultForceSet"
         is_write_register: true
 
       - register_name: "id"
-        set_service_name: "/gripper/set_id"
+        set_service_name: "/hand_left/set_id"
         is_write_register: true
 
-      - register_name: "reduRatio"
-        set_service_name: "/gripper/set_baud_index"
+      - register_name: "baudRate"
+        set_service_name: "/hand_left/set_baudRate"
         is_write_register: true
 
-      - register_name: "catchModeSet"
-        set_service_name: "/gripper/set_mode_service"
+      - register_name: "clearError"
+        set_service_name: "/hand_left/set_clearError"
+        is_write_register: true
+
+      - register_name: "save"
+        set_service_name: "/hand_left/set_save"
+        is_write_register: true
+
+      - register_name: "actionSeqIndex"
+        set_service_name: "/hand_left/set_actionSeqIndex"
         is_write_register: true
 
       - register_name: "errorCode"
-        get_service_name: "/gripper/get_error"
-        is_write_register: false
-
-      - register_name: "temp"
-        get_service_name: "/gripper/get_temp"
+        get_service_name: "/hand_left/get_errorCode"
         is_write_register: false
 
       - register_name: "status"
-        get_service_name: "/gripper/get_status"
+        get_service_name: "/hand_left/get_status"
         is_write_register: false
+
+      - register_name: "temp"
+        get_service_name: "/hand_left/get_temp"
+        is_write_register: false
+

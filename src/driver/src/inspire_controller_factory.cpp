@@ -1,20 +1,23 @@
 #include "inspire_controller_factory.hpp"
 #include "config_loader.hpp"
 #include "logger_manager.hpp"
-#include <fstream>
-#include <stdexcept>
 #include <yaml-cpp/yaml.h>
+#include <stdexcept>
+#include <fstream>
 
-std::vector<DeviceNodeConfig>
-InspireControllerFactory::loadDeviceNodeConfigs(const std::string& config_path,
-                                                const std::string& device_protocol_config_path) {
+std::vector<DeviceNodeConfig> InspireControllerFactory::loadDeviceNodeConfigs(
+    const std::string& config_path,
+    const std::string& device_protocol_config_path
+) {
     auto logger = getLogger();
     logger->info("加载设备节点配置: {}", config_path);
 
-    const std::string protocol_type = ConfigLoader::getProtocolTypeString(device_protocol_config_path);
-    const std::string profile = ConfigLoader::interfacesProfileFromProtocolType(protocol_type);
-    logger->info("根据设备协议配置推导 ROS 接口机型: protocol.type={} -> interfaces_profile={}", protocol_type,
-                 profile);
+    const std::string protocol_type =
+        ConfigLoader::getProtocolTypeString(device_protocol_config_path);
+    const std::string profile =
+        ConfigLoader::interfacesProfileFromProtocolType(protocol_type);
+    logger->info("根据设备协议配置推导 ROS 接口机型: protocol.type={} -> interfaces_profile={}",
+                 protocol_type, profile);
 
     YAML::Node node = YAML::LoadFile(config_path);
     std::vector<DeviceNodeConfig> configs;
@@ -27,8 +30,9 @@ InspireControllerFactory::loadDeviceNodeConfigs(const std::string& config_path,
         DeviceNodeConfig config = parseDeviceNodeConfig(device_node);
         config.interfaces_profile = profile;
         configs.push_back(config);
-        logger->info("加载设备节点配置: {} profile={} (topics: {}, services: {})", config.device_name,
-                     config.interfaces_profile, config.topics.size(), config.services.size());
+        logger->info("加载设备节点配置: {} profile={} (topics: {}, services: {})",
+                     config.device_name, config.interfaces_profile,
+                     config.topics.size(), config.services.size());
     }
 
     logger->info("共加载 {} 个设备节点配置", configs.size());
@@ -133,13 +137,34 @@ DeviceNodeConfig InspireControllerFactory::parseDeviceNodeConfig(const YAML::Nod
         }
     }
 
+    if (node["initial_registers"]) {
+        for (const auto& reg_node : node["initial_registers"]) {
+            if (!reg_node["register_name"]) {
+                throw std::runtime_error(
+                    "initial_registers 项缺少 'register_name' 字段 (device: " + config.device_name + ")");
+            }
+            InitialRegisterConfig initial;
+            initial.register_name = reg_node["register_name"].as<std::string>();
+            if (!reg_node["values"]) {
+                throw std::runtime_error(
+                    "initial_registers 项缺少 'values' 字段 (register: " + initial.register_name + ")");
+            }
+            for (const auto& v : reg_node["values"]) {
+                initial.values.push_back(v.as<int>());
+            }
+            config.initial_registers.push_back(std::move(initial));
+        }
+    }
+
     return config;
 }
 
 std::shared_ptr<RegisterController> InspireControllerFactory::createDeviceNode(
-    const DeviceNodeConfig& config, DeviceManager& device_manager,
+    const DeviceNodeConfig& config,
+    DeviceManager& device_manager,
     const std::unordered_map<std::string, std::shared_ptr<Protocol>>& device_protocols,
-    const std::string& device_protocol_config_path) {
+    const std::string& device_protocol_config_path
+) {
     auto logger = getLogger();
 
     auto deviceConfig = ConfigLoader::loadDeviceConfig(device_protocol_config_path);
@@ -168,20 +193,27 @@ std::shared_ptr<RegisterController> InspireControllerFactory::createDeviceNode(
     auto protocol = it->second;
 
     std::string node_name = config.device_name + "_node";
-    auto controller = std::make_shared<RegisterController>(node_name, config, device, protocol);
+    auto controller = std::make_shared<RegisterController>(
+        node_name,
+        config,
+        device,
+        protocol);
 
     controller->initialize();
 
-    logger->info("创建设备节点: {} (device: {}, port: {}, topics: {}, services: {})", node_name, config.device_name,
-                 device_port, config.topics.size(), config.services.size());
+    logger->info("创建设备节点: {} (device: {}, port: {}, topics: {}, services: {})",
+                 node_name, config.device_name, device_port,
+                 config.topics.size(), config.services.size());
 
     return controller;
 }
 
 std::vector<std::shared_ptr<RegisterController>> InspireControllerFactory::createAllDeviceNodes(
-    const std::string& config_path, DeviceManager& device_manager,
+    const std::string& config_path,
+    DeviceManager& device_manager,
     const std::unordered_map<std::string, std::shared_ptr<Protocol>>& device_protocols,
-    const std::string& device_protocol_config_path) {
+    const std::string& device_protocol_config_path
+) {
     auto configs = loadDeviceNodeConfigs(config_path, device_protocol_config_path);
     std::vector<std::shared_ptr<RegisterController>> controllers;
 

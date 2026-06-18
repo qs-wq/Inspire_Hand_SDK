@@ -10,14 +10,14 @@
  * 让上层能区分超时 / 校验失败 / 设备离线 / 参数非法等不同失败原因，而非仅一个 bool。
  */
 enum class IoError : std::uint8_t {
-    Ok = 0,          ///< 成功
-    Timeout,         ///< 无应答 / 读超时
-    ChecksumError,   ///< 校验和不匹配
-    BadResponse,     ///< 帧格式非法 / 解析失败
-    UnknownRegister, ///< 寄存器名未注册
-    InvalidArgument, ///< 参数非法（如值越界、个数超限）
-    NotSupported,    ///< 该机型 / 协议不支持此操作
-    DeviceError,     ///< 串口 / 设备异常
+    Ok = 0,            ///< 成功
+    Timeout,           ///< 无应答 / 读超时
+    ChecksumError,     ///< 校验和不匹配
+    BadResponse,       ///< 帧格式非法 / 解析失败
+    UnknownRegister,   ///< 寄存器名未注册
+    InvalidArgument,   ///< 参数非法（如值越界、个数超限）
+    NotSupported,      ///< 该机型 / 协议不支持此操作
+    DeviceError,       ///< 串口 / 设备异常
 };
 
 /** @brief 是否成功 */
@@ -26,22 +26,14 @@ inline bool isOk(IoError e) { return e == IoError::Ok; }
 /** @brief 错误码转可读字符串（日志 / Service message 用） */
 inline const char* toString(IoError e) {
     switch (e) {
-    case IoError::Ok:
-        return "ok";
-    case IoError::Timeout:
-        return "timeout";
-    case IoError::ChecksumError:
-        return "checksum_error";
-    case IoError::BadResponse:
-        return "bad_response";
-    case IoError::UnknownRegister:
-        return "unknown_register";
-    case IoError::InvalidArgument:
-        return "invalid_argument";
-    case IoError::NotSupported:
-        return "not_supported";
-    case IoError::DeviceError:
-        return "device_error";
+        case IoError::Ok:              return "ok";
+        case IoError::Timeout:         return "timeout";
+        case IoError::ChecksumError:   return "checksum_error";
+        case IoError::BadResponse:     return "bad_response";
+        case IoError::UnknownRegister: return "unknown_register";
+        case IoError::InvalidArgument: return "invalid_argument";
+        case IoError::NotSupported:    return "not_supported";
+        case IoError::DeviceError:     return "device_error";
     }
     return "unknown";
 }

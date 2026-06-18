@@ -1,13 +1,13 @@
 #pragma once
 
+#include <vector>
 #include <cstdint>
 #include <map>
 #include <string>
-#include <vector>
 
 /**
  * @brief ROS2消息类型定义
- *
+ * 
  * 结构体对应ROS2消息类型，用于在Protocol数据和ROS2消息之间转换
  */
 
@@ -15,7 +15,7 @@
  * @brief 角度命令消息（逻辑示意；Topic 请使用 rh*_interfaces/msg/SetAngle1 等）
  */
 struct AngleCommand {
-    std::vector<int32_t> values; // 手指的角度值
+    std::vector<int32_t> values;  // 手指的角度值
 };
 
 /**
@@ -40,3 +40,4 @@ struct RegisterData {
     std::string register_name;
     std::vector<int32_t> values;
 };
+

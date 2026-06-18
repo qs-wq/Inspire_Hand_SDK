@@ -1,23 +1,23 @@
 #ifndef RING_BUFFER_HPP
 #define RING_BUFFER_HPP
 
+#include <vector>
 #include <cstdint>
 #include <stdexcept>
-#include <vector>
 
 class RingBuffer {
 public:
     explicit RingBuffer(size_t size);
-
+    
     //清除缓冲区
     void clear();
-
+        
     // 入队，将数据添加到环形缓冲区
     void push(const uint8_t* data, size_t len);
-
+    
     // 出队，从缓冲区读取数据
     size_t pop(uint8_t* data, size_t maxlen);
-
+    
     // 获取当前缓冲区中的有效数据长度
     size_t size() const;
 
@@ -35,7 +35,7 @@ public:
 
     // 新增：获取buffer底层数据（常量引用）
     const std::vector<uint8_t>& getBuffer() const { return buffer; }
-
+    
     // 新增：获取tail索引
     size_t getTail() const { return tail; }
 
@@ -47,3 +47,4 @@ private:
 };
 
 #endif // RING_BUFFER_HPP
+

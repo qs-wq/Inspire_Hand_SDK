@@ -1,18 +1,18 @@
 #pragma once
-#include <memory>
 #include <string>
-#include <unordered_map>
+#include <unordered_map> 
+#include <memory>
 #include <yaml-cpp/yaml.h>
 
 #include "spdlog/spdlog.h"
 
-class Protocol; // 前向声明
+class Protocol;  // 前向声明
 
 // 设备信息（从YAML配置文件加载）
 struct DeviceInfo {
     std::string name;
     int baudrate;
-    int hand_id = 1; // 设备ID（Hand_ID），默认为1，支持多设备区分
+    int hand_id = 1;   // 设备ID（Hand_ID），默认为1，支持多设备区分
 };
 
 class ConfigLoader {

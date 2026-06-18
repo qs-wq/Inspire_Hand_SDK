@@ -1,15 +1,15 @@
 #pragma once
 
-#include <iostream>
-#include <map>
-#include <memory>
 #include <string>
 #include <vector>
+#include <map>
+#include <memory>
+#include <iostream>
 
-#include "io_error.hpp"
-#include "logger_manager.hpp"
-#include "ring_buffer.hpp"
 #include "serial_port.hpp"
+#include "ring_buffer.hpp"
+#include "logger_manager.hpp"
+#include "io_error.hpp"
 
 // 触觉数据结构体
 struct TouchDataResult {
@@ -32,7 +32,7 @@ using Device = std::shared_ptr<SerialPortBase>;
 
 /**
  * @brief 协议抽象基类
- *
+ * 
  * 定义所有协议实现必须遵循的接口规范。
  * 具体的协议实现（如RH56F1_485_Protocol）继承此类并实现所有纯虚函数。
  */
@@ -88,7 +88,7 @@ public:
      * @return 寄存器地址，如果不存在返回-1
      */
     virtual int getRegisterAddress(const std::string& register_name) const = 0;
-
+    
     /**
      * @brief 构建读取命令
      * @param address 寄存器地址
@@ -96,7 +96,7 @@ public:
      * @return 命令字节序列
      */
     virtual std::vector<uint8_t> buildReadCommand(int address, size_t length) = 0;
-
+    
     /**
      * @brief 构建写入命令
      * @param address 寄存器地址
@@ -104,14 +104,14 @@ public:
      * @return 命令字节序列
      */
     virtual std::vector<uint8_t> buildWriteCommand(int address, const std::vector<int>& values) = 0;
-
+    
     /**
      * @brief 解析响应数据
      * @param ringBuffer 环形缓冲区，包含响应数据
      * @return 解析结果（成功标志，解析出的值列表）
      */
     virtual std::pair<bool, std::vector<int>> parseResponse(RingBuffer& ringBuffer) = 0;
-
+    
     /**
      * @brief 验证响应数据的校验和
      * @param response 响应数据
@@ -135,7 +135,7 @@ public:
      * @return IoError::Ok 表示成功，否则为对应错误码
      */
     virtual IoError writeRegister(Device device, const std::string& reg_name, const std::vector<int>& values) = 0;
-
+    
     /**
      * @brief 读取寄存器值
      * @param device 设备对象
@@ -144,9 +144,8 @@ public:
      * @param length 读取长度
      * @return 读取结果（错误码 + 读取到的值列表）
      */
-    virtual RegisterReadResult readRegister(Device device, RingBuffer& ringBuffer, const std::string& reg_name,
-                                            size_t length) = 0;
-
+    virtual RegisterReadResult readRegister(Device device, RingBuffer& ringBuffer, const std::string& reg_name, size_t length) = 0;
+    
     /**
      * @brief 读取触觉数据
      * @param device 设备对象
@@ -156,3 +155,4 @@ public:
      */
     virtual TouchReadResult readTouchData(Device device, RingBuffer& ringBuffer, int version) = 0;
 };
+

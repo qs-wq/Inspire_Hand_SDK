@@ -26,8 +26,7 @@ size_t RingBuffer::pop(uint8_t* data, size_t maxlen) {
 }
 
 size_t RingBuffer::size() const {
-    if (full)
-        return buffer.size();
+    if (full) return buffer.size();
     if (head >= tail)
         return head - tail;
     else
@@ -41,13 +40,16 @@ size_t RingBuffer::contiguousDataSize() const {
         return buffer.size() - tail;
 }
 
-const uint8_t* RingBuffer::data() const { return buffer.data(); }
+const uint8_t* RingBuffer::data() const {
+    return buffer.data();
+}
 
-const uint8_t* RingBuffer::dataPtr() const { return &buffer[tail]; }
+const uint8_t* RingBuffer::dataPtr() const {
+    return &buffer[tail];
+}
 
 void RingBuffer::advance(size_t count) {
-    if (count > size())
-        throw std::runtime_error("超出缓冲区数据");
+    if (count > size()) throw std::runtime_error("超出缓冲区数据");
     tail = (tail + count) % buffer.size();
     full = false;
 }
