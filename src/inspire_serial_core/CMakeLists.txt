@@ -93,4 +93,7 @@ install(FILES
 if(INSPIRE_SERIAL_CORE_BUILD_EXAMPLES)
     add_executable(serial_hand_control_node examples/main.cpp)
     target_link_libraries(serial_hand_control_node PRIVATE inspire_serial_core)
+
+    add_executable(rh56dfx_hand_control_node examples/RH56DFX.cpp)
+    target_link_libraries(rh56dfx_hand_control_node PRIVATE inspire_serial_core)
 endif()

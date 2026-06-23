@@ -64,5 +64,10 @@ protected:
 
     std::vector<uint8_t> encodeValuesByRule(const std::string& reg_name, const std::vector<int>& values, IoError* err) const;
     std::vector<int> decodeValuesByRule(const std::string& reg_name, const std::vector<uint8_t>& payload) const;
+
+    // 触觉解析辅助（485 帧格式，与 RH5DG2 对齐；RH56DFX 无触觉硬件但保留完整解析框架）
+    uint8_t readByteAtOffset(const RingBuffer& ringBuffer, size_t offset) const;
+    std::vector<uint8_t> extractFromRingBuffer(const RingBuffer& ringBuffer, size_t startOffset, size_t length) const;
+    bool validate485FrameChecksum(const std::vector<uint8_t>& response) const;
 };
 

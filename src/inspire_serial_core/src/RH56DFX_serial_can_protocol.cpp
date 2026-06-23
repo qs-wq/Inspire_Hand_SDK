@@ -60,6 +60,16 @@ bool isMotionWriteRegister(const std::string& reg_name) {
            reg_name == "speedSet";
 }
 
+std::string resolveWriteRegisterName(const std::string& reg_name) {
+    if (reg_name == "defaultSpeedSet") {
+        return "speedSet";
+    }
+    if (reg_name == "defaultForceSet") {
+        return "forceSet";
+    }
+    return reg_name;
+}
+
 }  // namespace
 
 const std::map<std::string, int> RH56DFX_serial_can_Protocol::REGISTER_MAP = {
@@ -78,6 +88,7 @@ const std::map<std::string, int> RH56DFX_serial_can_Protocol::REGISTER_MAP = {
     {"temp", 1618},
     {"actionSeqIndex", 2320},
     {"actionSeqRun", 2322},
+    {"touchAct", 3000},
 };
 
 const std::map<std::string, size_t> RH56DFX_serial_can_Protocol::REGISTER_READ_LENGTH_MAP = {
@@ -399,23 +410,27 @@ IoError RH56DFX_serial_can_Protocol::writeRegister(
     const std::vector<int>& values) {
     auto logger = getLogger();
 
-    if (isNotSupportedRegister(reg_name)) {
+    const std::string effective_reg = resolveWriteRegisterName(reg_name);
+    if (isNotSupportedRegister(reg_name) && effective_reg == reg_name) {
         return IoError::NotSupported;
     }
+    if (effective_reg != reg_name) {
+        logger->debug("[RH56DFX] {} 映射写入 {}（无持久化 default 寄存器）", reg_name, effective_reg);
+    }
 
-    const auto it_addr = REGISTER_MAP.find(reg_name);
+    const auto it_addr = REGISTER_MAP.find(effective_reg);
     if (it_addr == REGISTER_MAP.end()) {
         return IoError::UnknownRegister;
     }
 
     IoError precheck_err = IoError::Ok;
-    (void)encodeValuesByRule(reg_name, values, &precheck_err);
+    (void)encodeValuesByRule(effective_reg, values, &precheck_err);
     if (!isOk(precheck_err)) {
         return precheck_err;
     }
 
     RegisterWriteRule rule{};
-    const auto it_rule = REGISTER_WRITE_RULE_MAP.find(reg_name);
+    const auto it_rule = REGISTER_WRITE_RULE_MAP.find(effective_reg);
     if (it_rule != REGISTER_WRITE_RULE_MAP.end()) {
         rule = it_rule->second;
     }
@@ -426,7 +441,7 @@ IoError RH56DFX_serial_can_Protocol::writeRegister(
     while (value_offset < values.size()) {
         const size_t remain = values.size() - value_offset;
         size_t one_frame_values = 1;
-        if (isFingerSeriesRegister(reg_name) && bytes_per_value == 2) {
+        if (isFingerSeriesRegister(effective_reg) && bytes_per_value == 2) {
             // 对齐 2.py：6 自由度寄存器优先 4+2 分包
             if (value_offset == 0 && remain >= 4) {
                 one_frame_values = 4;
@@ -444,7 +459,7 @@ IoError RH56DFX_serial_can_Protocol::writeRegister(
         }
 
         IoError frame_encode_err = IoError::Ok;
-        const auto frame_payload = encodeValuesByRule(reg_name, frame_values, &frame_encode_err);
+        const auto frame_payload = encodeValuesByRule(effective_reg, frame_values, &frame_encode_err);
         if (!isOk(frame_encode_err)) {
             return frame_encode_err;
         }
@@ -470,7 +485,7 @@ IoError RH56DFX_serial_can_Protocol::writeRegister(
         }
 
         // 完全对齐 2.py：运动命令只发送，不依赖回包判定成功
-        if (isMotionWriteRegister(reg_name)) {
+        if (isMotionWriteRegister(effective_reg)) {
             value_offset += one_frame_values;
             // 协议文档建议帧间 10~50ms，这里取 20ms 兼顾稳定性
             std::this_thread::sleep_for(std::chrono::milliseconds(20));
@@ -616,11 +631,265 @@ RegisterReadResult RH56DFX_serial_can_Protocol::readRegister(
     return {IoError::Ok, std::move(decoded)};
 }
 
+uint8_t RH56DFX_serial_can_Protocol::readByteAtOffset(const RingBuffer& ringBuffer, size_t offset) const {
+    const size_t bufSize = ringBuffer.size();
+    if (offset >= bufSize) {
+        return 0xFF;
+    }
+    const std::vector<uint8_t>& buf = ringBuffer.getBuffer();
+    const size_t tailIndex = ringBuffer.getTail();
+    const size_t bufferSize = buf.size();
+    return buf[(tailIndex + offset) % bufferSize];
+}
+
+std::vector<uint8_t> RH56DFX_serial_can_Protocol::extractFromRingBuffer(
+    const RingBuffer& ringBuffer,
+    size_t startOffset,
+    size_t length) const {
+    std::vector<uint8_t> result(length);
+    const std::vector<uint8_t>& buf = ringBuffer.getBuffer();
+    const size_t tailIndex = ringBuffer.getTail();
+    const size_t bufferSize = buf.size();
+
+    for (size_t i = 0; i < length; ++i) {
+        result[i] = buf[(tailIndex + startOffset + i) % bufferSize];
+    }
+    return result;
+}
+
+bool RH56DFX_serial_can_Protocol::validate485FrameChecksum(const std::vector<uint8_t>& response) const {
+    if (response.size() < 9) {
+        return false;
+    }
+    if (response[0] != 0x90 || response[1] != 0xEB) {
+        return false;
+    }
+
+    uint8_t checksum = 0;
+    for (size_t i = 2; i < response.size() - 1; ++i) {
+        checksum += response[i];
+    }
+
+    const bool valid = (checksum == response.back());
+    if (!valid) {
+        auto logger = getLogger();
+        logger->debug("触觉数据校验和验证失败: 计算值 = 0x{:02X}, 期望值 = 0x{:02X}", checksum, response.back());
+    }
+    return valid;
+}
+
+std::pair<bool, TouchDataResult> RH56DFX_serial_can_Protocol::parseTouchData(RingBuffer& ringBuffer, int version) {
+    auto logger = getLogger();
+
+    try {
+        const size_t bufSize = ringBuffer.size();
+        if (bufSize < 8) {
+            return {false, {}};
+        }
+
+        if (version != 1) {
+            if (version == 2) {
+                logger->warn("触觉数据版本2暂未实现");
+            } else {
+                logger->error("未知的触觉数据版本: {}", version);
+            }
+            return {false, {}};
+        }
+
+        size_t startIdx = 0;
+        bool found = false;
+        for (size_t i = 0; i + 1 < bufSize; ++i) {
+            if (readByteAtOffset(ringBuffer, i) == 0x90 && readByteAtOffset(ringBuffer, i + 1) == 0xEB) {
+                startIdx = i;
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            return {false, {}};
+        }
+
+        if (bufSize < startIdx + 8) {
+            return {false, {}};
+        }
+
+        const uint8_t hands_id = readByteAtOffset(ringBuffer, startIdx + 2);
+        const uint8_t data_length = readByteAtOffset(ringBuffer, startIdx + 3);
+        const uint8_t command = readByteAtOffset(ringBuffer, startIdx + 4);
+
+        if (command != 0x11) {
+            logger->debug("触觉数据无效的命令类型: 0x{:02X}，跳过帧头", command);
+            ringBuffer.advance(startIdx + 1);
+            return {false, {}};
+        }
+
+        if (device_id_ != 0 && hands_id != device_id_) {
+            logger->debug("触觉数据Hands_ID不匹配: 期望 {}, 实际 {}", device_id_, hands_id);
+            ringBuffer.advance(startIdx + 1);
+            return {false, {}};
+        }
+
+        if (data_length < 3) {
+            logger->error("触觉数据无效的数据长度: {} (应 >= 3)", data_length);
+            ringBuffer.advance(startIdx + 1);
+            return {false, {}};
+        }
+
+        const size_t register_length = data_length - 3;
+        const size_t response_len = 8 + register_length;
+
+        if (bufSize < startIdx + response_len) {
+            return {false, {}};
+        }
+
+        const std::vector<uint8_t> response = extractFromRingBuffer(ringBuffer, startIdx, response_len);
+        if (!validate485FrameChecksum(response)) {
+            logger->debug("触觉数据校验和验证失败，跳过当前帧头");
+            ringBuffer.advance(startIdx + 1);
+            return {false, {}};
+        }
+
+        TouchDataResult result;
+        const size_t data_start = 7;
+        const std::string fingers[] = {"little", "ring", "middle", "index", "thumb"};
+
+        const size_t available_data_length = register_length;
+        const size_t finger_data_length = 5 * 10;
+        const size_t palm_start_idx = data_start + finger_data_length;
+        const size_t palm_data_length = 9 * 2;
+
+        for (int i = 0; i < 5; ++i) {
+            const size_t base_idx = data_start + static_cast<size_t>(i) * 10;
+            if (base_idx + 10 > data_start + available_data_length || base_idx + 10 > response.size()) {
+                logger->warn("触觉数据不足，无法解析第{}个手指数据", i + 1);
+                break;
+            }
+
+            std::vector<uint16_t> finger_vals;
+            finger_vals.reserve(4);
+            for (int j = 0; j < 3; ++j) {
+                const uint8_t low_byte = response[base_idx + static_cast<size_t>(j) * 2];
+                const uint8_t high_byte = response[base_idx + static_cast<size_t>(j) * 2 + 1];
+                const uint16_t val = low_byte | (high_byte << 8);
+                finger_vals.push_back(val);
+            }
+
+            if (base_idx + 9 <= response.size()) {
+                const uint8_t b0 = response[base_idx + 6];
+                const uint8_t b1 = response[base_idx + 7];
+                const uint8_t b2 = response[base_idx + 8];
+                const uint32_t combined = b0 | (b1 << 8) | (b2 << 16);
+                finger_vals.push_back(combined);
+            } else {
+                logger->warn("触觉数据不足，无法解析第{}个手指的24位值", i + 1);
+            }
+
+            result.fingerResults[fingers[i]] = std::move(finger_vals);
+        }
+
+        if (palm_start_idx + palm_data_length <= data_start + available_data_length &&
+            palm_start_idx + palm_data_length <= response.size()) {
+            for (int j = 0; j < 9; ++j) {
+                const size_t idx = palm_start_idx + static_cast<size_t>(j) * 2;
+                if (idx + 1 < response.size()) {
+                    const uint16_t val = response[idx] | (response[idx + 1] << 8);
+                    result.palmResults["palm_data_" + std::to_string(j + 1)] = val;
+                } else {
+                    logger->warn("触觉数据不足，无法解析第{}个掌心数据", j + 1);
+                    break;
+                }
+            }
+        } else {
+            logger->warn(
+                "触觉数据不足，无法解析掌心数据 (需要 {} 字节，实际可用 {} 字节)",
+                palm_data_length,
+                (data_start + available_data_length > palm_start_idx)
+                    ? (data_start + available_data_length - palm_start_idx)
+                    : 0);
+        }
+
+        ringBuffer.advance(startIdx + response_len);
+        return {true, std::move(result)};
+    } catch (const std::exception& e) {
+        logger->error("触觉解析异常: {}", e.what());
+        return {false, {}};
+    }
+}
+
 TouchReadResult RH56DFX_serial_can_Protocol::readTouchData(Device device, RingBuffer& ringBuffer, int version) {
-    (void)device;
-    (void)ringBuffer;
-    (void)version;
-    return {IoError::NotSupported, {}};
+    std::ostringstream oss;
+    auto logger = getLogger();
+
+    try {
+        if (isNotSupportedRegister("touchAct")) {
+            logger->debug("RH56DFX 机型无触觉传感器，touchAct 不可用");
+            return {IoError::NotSupported, {}};
+        }
+
+        ringBuffer.clear();
+
+        const int touchAddress = getRegisterAddress("touchAct");
+        if (touchAddress < 0) {
+            logger->error("未知触觉寄存器 touchAct");
+            return {IoError::UnknownRegister, {}};
+        }
+
+        const auto readTouchCmd = buildReadCommand(touchAddress, 68);
+        logger->debug(
+            "[读取命令-触觉] 地址: 0x{:04X}, 长度: 68, 命令: {}",
+            touchAddress,
+            bytesToHex(readTouchCmd));
+
+        try {
+            device->clearBuffer();
+            device->write(readTouchCmd);
+        } catch (...) {
+            logger->error("读取触觉寄存器发送失败（device_error）");
+            return {IoError::DeviceError, {}};
+        }
+
+        const auto resp = readOneFrameRaw(device, 30);
+        if (!resp.empty()) {
+            logger->debug("[原始响应-触觉] 响应: {}", bytesToHex(resp));
+        } else {
+            logger->debug("[原始响应-触觉] 响应为空");
+        }
+
+        if (resp.empty()) {
+            logger->error("读取触觉寄存器失败");
+            return {IoError::Timeout, {}};
+        }
+
+        ringBuffer.push(resp.data(), resp.size());
+        auto result = parseTouchData(ringBuffer, version);
+
+        if (result.first) {
+            const TouchDataResult& touchData = result.second;
+            oss << "读取touchAct:(";
+            for (const auto& finger_pair : touchData.fingerResults) {
+                oss << finger_pair.first << ":";
+                for (size_t i = 0; i < finger_pair.second.size(); ++i) {
+                    oss << finger_pair.second[i];
+                    if (i != finger_pair.second.size() - 1) {
+                        oss << " ";
+                    }
+                }
+                oss << " ";
+            }
+            for (const auto& palm_pair : touchData.palmResults) {
+                oss << palm_pair.first << ":" << palm_pair.second << " ";
+            }
+            oss << ")";
+            logger->info(oss.str());
+            return {IoError::Ok, std::move(result.second)};
+        }
+
+        logger->error("读取触觉寄存器失败");
+        return {IoError::BadResponse, {}};
+    } catch (...) {
+        logger->error("读取触觉寄存器异常");
+        return {IoError::DeviceError, {}};
+    }
 }
 
 std::vector<uint8_t> RH56DFX_serial_can_Protocol::buildReadCommand(int address, size_t length) {
@@ -645,12 +914,6 @@ std::vector<uint8_t> RH56DFX_serial_can_Protocol::buildWriteCommand(
 
 std::pair<bool, std::vector<int>> RH56DFX_serial_can_Protocol::parseResponse(RingBuffer& ringBuffer) {
     (void)ringBuffer;
-    return {false, {}};
-}
-
-std::pair<bool, TouchDataResult> RH56DFX_serial_can_Protocol::parseTouchData(RingBuffer& ringBuffer, int version) {
-    (void)ringBuffer;
-    (void)version;
     return {false, {}};
 }
 

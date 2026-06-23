@@ -1,7 +1,5 @@
 # RH56DFX ROS2 控制器示例配置（与 ros2_controller_config.yaml 内容一致，便于 --controller-config 显式指定）
 # 6 自由度；服务项与 RH56F1 对齐（协议已支持的子集）
-# RH56DFX 不支持 RH5DG2 的 defaultSpeedSet/defaultForceSet 持久化寄存器；
-# 使用 initial_registers 在驱动启动时写入 speedSet / forceSet（效果类似 RH5 默认速度/力）。
 
 device_nodes:
   - device: hand_left
@@ -18,13 +16,6 @@ device_nodes:
       - "hand_left/joint_4"
       - "hand_left/joint_5"
 
-    # 启动时写入速度与力（6 关节，范围通常 0-1000）；可按需修改
-    initial_registers:
-      - register_name: "speedSet"
-        values: [500, 500, 500, 500, 500, 500]
-      - register_name: "forceSet"
-        values: [500, 500, 500, 500, 500, 500]
-
     topics:
       - name: angle_control
         registers:
@@ -40,7 +31,6 @@ device_nodes:
         command_topic: "/hand_left/force_set"
         state_topic: "/hand_left/force_actual"
 
-      # 速度控制话题
       - name: speed_control
         registers:
           write: ["speedSet"]
@@ -57,16 +47,6 @@ device_nodes:
 
       - register_name: "speedSet"
         set_service_name: "/hand_left/set_speed"
-        is_write_register: true
-
-      # 默认速度设置服务（RH56DFX 映射到 speedSet，与 RH5DG2 服务名一致）
-      - register_name: "defaultSpeedSet"
-        set_service_name: "/hand_left/set_defaultSpeed"
-        is_write_register: true
-
-      # 默认力保护设置服务（RH56DFX 映射到 forceSet，与 RH5DG2 服务名一致）
-      - register_name: "defaultForceSet"
-        set_service_name: "/hand_left/set_defaultForceSet"
         is_write_register: true
 
       - register_name: "id"
@@ -100,4 +80,3 @@ device_nodes:
       - register_name: "temp"
         get_service_name: "/hand_left/get_temp"
         is_write_register: false
-

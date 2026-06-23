@@ -1,7 +1,6 @@
 # RH56DFX ROS2 控制器示例配置（与 ros2_controller_config.yaml 内容一致，便于 --controller-config 显式指定）
-# 6 自由度；服务项与 RH56F1 对齐（协议已支持的子集）
-# RH56DFX 不支持 RH5DG2 的 defaultSpeedSet/defaultForceSet 持久化寄存器；
-# 使用 initial_registers 在驱动启动时写入 speedSet / forceSet（效果类似 RH5 默认速度/力）。
+# default 服务名与 RH5DG2 一致：/hand_left/set_defaultSpeed、/hand_left/set_defaultForceSet
+# RH56DFX 无持久化 default 寄存器，协议层将 defaultSpeedSet/defaultForceSet 映射到 speedSet/forceSet
 
 device_nodes:
   - device: hand_left

@@ -210,40 +210,44 @@ void RH56DFXInterfaceAdapter::wireServices() {
                     });
                 logger->info("[{}] Service(SetSpeed): {}", backend_.ioNodeName(), sc.set_service_name);
             } else if (reg == "defaultSpeedSet") {
-                // RH56DFX 无 defaultSpeedSet 寄存器，映射到运行时 speedSet（与 RH5DG2 服务名对齐）
-                maps_.services[sc.set_service_name] = makeGroupedService<rh56dfx_interfaces::srv::Setdefaultspeed>(
+                maps_.services[sc.set_service_name] = this->makeGroupedService<rh56dfx_interfaces::srv::Setdefaultspeed>(
                     sc.set_service_name,
-                    [this](
+                    [this, reg](
                         const rh56dfx_interfaces::srv::Setdefaultspeed::Request::SharedPtr req,
                         rh56dfx_interfaces::srv::Setdefaultspeed::Response::SharedPtr res) {
                         if (!rosIncomingHandIdTargetsThisNode(backend_, req->hand_id)) {
                             res->accepted = false;
                             res->message = "rejected: hand_id mismatch";
+                            getLogger()->warn("[{}] 拒绝 Setdefaultspeed: hand_id={}（本节点 Hand_ID={}）",
+                                backend_.ioNodeName(), req->hand_id, backend_.ioHandId());
                             return;
                         }
                         std::vector<int> vals(req->joint_values.begin(), req->joint_values.end());
-                        const IoError e = backend_.ioWriteRegister("speedSet", vals);
+                        const IoError e = backend_.ioWriteRegister(reg, vals);
                         res->accepted = isOk(e);
-                        res->message = isOk(e) ? "speedSet: ok" : toString(e);
+                        res->message = toString(e);
                     });
-                logger->info("[{}] Service(Setdefaultspeed -> speedSet): {}", backend_.ioNodeName(), sc.set_service_name);
+                logger->info("[{}] Service(Setdefaultspeed): {}", backend_.ioNodeName(), sc.set_service_name);
             } else if (reg == "defaultForceSet") {
-                maps_.services[sc.set_service_name] = makeGroupedService<rh56dfx_interfaces::srv::Setdefaultforceset>(
-                    sc.set_service_name,
-                    [this](
-                        const rh56dfx_interfaces::srv::Setdefaultforceset::Request::SharedPtr req,
-                        rh56dfx_interfaces::srv::Setdefaultforceset::Response::SharedPtr res) {
-                        if (!rosIncomingHandIdTargetsThisNode(backend_, req->hand_id)) {
-                            res->accepted = false;
-                            res->message = "rejected: hand_id mismatch";
-                            return;
-                        }
-                        std::vector<int> vals(req->joint_values.begin(), req->joint_values.end());
-                        const IoError e = backend_.ioWriteRegister("forceSet", vals);
-                        res->accepted = isOk(e);
-                        res->message = isOk(e) ? "forceSet: ok" : toString(e);
-                    });
-                logger->info("[{}] Service(Setdefaultforceset -> forceSet): {}", backend_.ioNodeName(), sc.set_service_name);
+                maps_.services[sc.set_service_name] =
+                    this->makeGroupedService<rh56dfx_interfaces::srv::Setdefaultforceset>(
+                        sc.set_service_name,
+                        [this, reg](
+                            const rh56dfx_interfaces::srv::Setdefaultforceset::Request::SharedPtr req,
+                            rh56dfx_interfaces::srv::Setdefaultforceset::Response::SharedPtr res) {
+                            if (!rosIncomingHandIdTargetsThisNode(backend_, req->hand_id)) {
+                                res->accepted = false;
+                                res->message = "rejected: hand_id mismatch";
+                                getLogger()->warn("[{}] 拒绝 Setdefaultforceset: hand_id={}（本节点 Hand_ID={}）",
+                                    backend_.ioNodeName(), req->hand_id, backend_.ioHandId());
+                                return;
+                            }
+                            std::vector<int> vals(req->joint_values.begin(), req->joint_values.end());
+                            const IoError e = backend_.ioWriteRegister(reg, vals);
+                            res->accepted = isOk(e);
+                            res->message = toString(e);
+                        });
+                logger->info("[{}] Service(Setdefaultforceset): {}", backend_.ioNodeName(), sc.set_service_name);
             } else if (reg == "id") {
                 maps_.services[sc.set_service_name] = makeGroupedService<rh56dfx_interfaces::srv::Setid>(
                     sc.set_service_name,
