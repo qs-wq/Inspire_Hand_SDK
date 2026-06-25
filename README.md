@@ -58,7 +58,7 @@ serial_control/                        # = git 根 = colcon 工作区根
 | **inspire_control_ros2** | 节点与驱动逻辑：`inspire_control_node`、`RegisterController`、`RH5DG2InterfaceAdapter` / `RH56F1InterfaceAdapter` / **`RH56DFXInterfaceAdapter`** / **`EG5CD1InterfaceAdapter`**，配置文件安装在 `share/inspire_control_ros2/config`。 |
 | **rh5dg2_interfaces** | RH5DG2（13 自由度）专用 `msg`/`srv`，例如 `SetAngle1`、`GetAngleAct1`、`Setforce`、`Geterror` 等。 |
 | **rh56f1_interfaces** | RH56 系列（6 自由度）专用 `msg`/`srv`。 |
-| **rh56dfx_interfaces** | RH56DFX Serial-CAN 灵巧手专用 `msg`/`srv`（与 RH5DG2 服务名对齐，如 `Setangle`、`Getstatus` 等）。 |
+| **rh56dfx_interfaces** | RH56DFX Serial-CAN 灵巧手专用 `msg`/`srv`，**服务集已与 RH5DG2/RH56F1 完全对齐**（`Setangle`/`Setforce`/`Setspeed`/`Setid`/`Setbaudrate`/`Setclearerror`/`Setactionseqindex`/`Geterror`/`Getstatus`/`Gettemp` 等底层已支持；`Setmode`/`Setpause`/`Setstop`/`Setresetpara`/`Setgestureforceclb`/`Setactionlibraryindex` 为**接口对齐占位**——厂商 CAN 文档暂未提供这些寄存器地址，调用返回 `not_supported`，补地址后即生效；另含 DFX 特有 `Setsave`）。 |
 | **eg5cd1_interfaces** | **因时 EG-5CD1** 电动夹爪 RS485：`GripperState`、`SetInt32`、`TriggerForHand`、`SetInt32Value`、`GetScalarForHand`；**组合服务** `ForceModeGrasp` / `ForceModeOpen` / `TouchModeGrasp` / `TouchModeOpen`（仅 `hand_id`+`speed`+`force`，内部按文档顺序经 `ioWriteSequence` 在设备 `DeviceWorker` 上**原子串行**写寄存器，见下）。 |
 
 在 **`device_protocol_config.yaml`** 中设置 **`protocol.type`**（如 **`RH5DG2_485`**、**`RH56F1_485`**、**`RH56DFX_serial_can`**、**`EG5CD1_485`** 等），启动时自动推导 **`interfaces_profile`**（`RH5DG2` / `RH56F1` / **`RH56DFX`** / **`EG5CD1`**）并创建对应适配器。
@@ -247,7 +247,7 @@ dmesg | grep ttyUSB
 - `python3-colcon-common-extensions` - Colcon构建工具扩展
 - `python3-rosdep` - ROS依赖管理工具（可选）
 
-**本仓库 ROS2 工作区包（源码编译，非 apt）**：`rh5dg2_interfaces`、`rh56f1_interfaces`、`inspire_control_ros2`，详见上文「ROS2 接口说明」与 `docs/依赖清单.md`。
+**本仓库 ROS2 工作区包（源码编译，非 apt）**：`rh5dg2_interfaces`、`rh56f1_interfaces`、`rh56dfx_interfaces`、`eg5cd1_interfaces`、`inspire_control_ros2`，详见上文「ROS2 接口说明」与 `docs/依赖清单.md`。
 
 **第三方库依赖**：
 - `libboost-system-dev` - Boost系统库（包含Boost.Asio）
@@ -476,7 +476,7 @@ ctest --test-dir build --output-on-failure
 
 ### 4. 配置设备
 
-编辑 **`src/driver/config/device_protocol_config.yaml`**（或与 launch 一致的 `--device-config` 路径）：
+编辑 **`src/driver/config/device_protocol_config.yaml`**（或与 launch 一致的 `--device-config` 路径）。`protocol.type` 决定机型（仓库内默认值为 `RH56DFX_serial_can`，下例以 `RH56F1_485` 演示，按需替换为 `RH5DG2_485` / `RH56DFX_serial_can` / `EG5CD1_485` 等）：
 
 ```yaml
 protocol:
@@ -557,13 +557,6 @@ ros2 service call /hand_left/set_id rh5dg2_interfaces/srv/Setid \
 
 📖 **[docs/模块使用说明.md](docs/模块使用说明.md)**
 
-包含：
-- 各模块功能简介
-- 主要类和函数说明
-- 配置参数说明
-- 使用示例
-- 数据流和通信方式
-
 ### 依赖清单
 
 📖 **[docs/依赖清单.md](docs/依赖清单.md)**
@@ -577,7 +570,7 @@ ros2 service call /hand_left/set_id rh5dg2_interfaces/srv/Setid \
 
 ### 协议格式说明
 
-📖 **[docs/RH56F1_485协议格式说明.md](docs/RH56F1_485协议格式说明.md)**（另见 `docs/RH5DG2_485协议格式说明.md`、`docs/夹爪485寄存器规则.md`、`docs/EG5CD1协议格式说明.md`、`docs/EG5CD1_ROS2_API.md`）
+📖 **[docs/RH56F1_485协议格式说明.md](docs/RH56F1_485协议格式说明.md)**（另见 `docs/RH5DG2_485协议格式说明.md`、`docs/RH56DFX_Serial_CAN协议解析.md`、`docs/夹爪485寄存器规则.md`、`docs/EG5CD1协议格式说明.md`、`docs/EG5CD1_ROS2_API.md`）
 
 包含：
 - 读写请求格式

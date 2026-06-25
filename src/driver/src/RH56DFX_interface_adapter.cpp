@@ -20,6 +20,12 @@
 #include <rh56dfx_interfaces/srv/setclearerror.hpp>
 #include <rh56dfx_interfaces/srv/setsave.hpp>
 #include <rh56dfx_interfaces/srv/setactionseqindex.hpp>
+#include <rh56dfx_interfaces/srv/setmode.hpp>
+#include <rh56dfx_interfaces/srv/setpause.hpp>
+#include <rh56dfx_interfaces/srv/setstop.hpp>
+#include <rh56dfx_interfaces/srv/setresetpara.hpp>
+#include <rh56dfx_interfaces/srv/setgestureforceclb.hpp>
+#include <rh56dfx_interfaces/srv/setactionlibraryindex.hpp>
 #include <rh56dfx_interfaces/srv/geterror.hpp>
 #include <rh56dfx_interfaces/srv/getstatus.hpp>
 #include <rh56dfx_interfaces/srv/gettemp.hpp>
@@ -328,6 +334,109 @@ void RH56DFXInterfaceAdapter::wireServices() {
                         res->message = toString(e);
                     });
                 logger->info("[{}] Service(Setactionseqindex): {}", backend_.ioNodeName(), sc.set_service_name);
+            } else if (reg == "mode") {
+                // 接口对齐占位：RH56DFX 厂商 CAN 文档未提供 mode 寄存器地址，
+                // 协议层 NOT_SUPPORTED_REGISTERS 已拦截，调用将返回 not_supported。
+                // 待拿到 CAN 地址后，在协议 REGISTER_MAP 补地址并从 NOT_SUPPORTED 移除即可启用。
+                maps_.services[sc.set_service_name] = makeGroupedService<rh56dfx_interfaces::srv::Setmode>(
+                    sc.set_service_name,
+                    [this](
+                        const rh56dfx_interfaces::srv::Setmode::Request::SharedPtr req,
+                        rh56dfx_interfaces::srv::Setmode::Response::SharedPtr res) {
+                        if (!rosIncomingHandIdTargetsThisNode(backend_, req->hand_id)) {
+                            res->accepted = false;
+                            res->message = "rejected: hand_id mismatch";
+                            return;
+                        }
+                        std::vector<int> vals(req->joint_values.begin(), req->joint_values.end());
+                        const IoError e = backend_.ioWriteRegister("mode", vals);
+                        res->accepted = isOk(e);
+                        res->message = toString(e);
+                    });
+                logger->info("[{}] Service(SetMode): {}", backend_.ioNodeName(), sc.set_service_name);
+            } else if (reg == "pause") {
+                maps_.services[sc.set_service_name] = makeGroupedService<rh56dfx_interfaces::srv::Setpause>(
+                    sc.set_service_name,
+                    [this](
+                        const rh56dfx_interfaces::srv::Setpause::Request::SharedPtr req,
+                        rh56dfx_interfaces::srv::Setpause::Response::SharedPtr res) {
+                        if (!rosIncomingHandIdTargetsThisNode(backend_, req->hand_id)) {
+                            res->accepted = false;
+                            res->message = "rejected: hand_id mismatch";
+                            return;
+                        }
+                        const IoError e = backend_.ioWriteRegister("pause", {static_cast<int>(req->pause_flag)});
+                        res->accepted = isOk(e);
+                        res->message = toString(e);
+                    });
+                logger->info("[{}] Service(Setpause): {}", backend_.ioNodeName(), sc.set_service_name);
+            } else if (reg == "stop") {
+                maps_.services[sc.set_service_name] = makeGroupedService<rh56dfx_interfaces::srv::Setstop>(
+                    sc.set_service_name,
+                    [this](
+                        const rh56dfx_interfaces::srv::Setstop::Request::SharedPtr req,
+                        rh56dfx_interfaces::srv::Setstop::Response::SharedPtr res) {
+                        if (!rosIncomingHandIdTargetsThisNode(backend_, req->hand_id)) {
+                            res->accepted = false;
+                            res->message = "rejected: hand_id mismatch";
+                            return;
+                        }
+                        const IoError e = backend_.ioWriteRegister("stop", {static_cast<int>(req->stop_flag)});
+                        res->accepted = isOk(e);
+                        res->message = toString(e);
+                    });
+                logger->info("[{}] Service(Setstop): {}", backend_.ioNodeName(), sc.set_service_name);
+            } else if (reg == "resetPara") {
+                maps_.services[sc.set_service_name] = makeGroupedService<rh56dfx_interfaces::srv::Setresetpara>(
+                    sc.set_service_name,
+                    [this](
+                        const rh56dfx_interfaces::srv::Setresetpara::Request::SharedPtr req,
+                        rh56dfx_interfaces::srv::Setresetpara::Response::SharedPtr res) {
+                        if (!rosIncomingHandIdTargetsThisNode(backend_, req->hand_id)) {
+                            res->accepted = false;
+                            res->message = "rejected: hand_id mismatch";
+                            return;
+                        }
+                        const IoError e = backend_.ioWriteRegister("resetPara", {static_cast<int>(req->confirm)});
+                        res->accepted = isOk(e);
+                        res->message = toString(e);
+                    });
+                logger->info("[{}] Service(Setresetpara): {}", backend_.ioNodeName(), sc.set_service_name);
+            } else if (reg == "gestureForceClb") {
+                maps_.services[sc.set_service_name] =
+                    makeGroupedService<rh56dfx_interfaces::srv::Setgestureforceclb>(
+                        sc.set_service_name,
+                        [this](
+                            const rh56dfx_interfaces::srv::Setgestureforceclb::Request::SharedPtr req,
+                            rh56dfx_interfaces::srv::Setgestureforceclb::Response::SharedPtr res) {
+                            if (!rosIncomingHandIdTargetsThisNode(backend_, req->hand_id)) {
+                                res->accepted = false;
+                                res->message = "rejected: hand_id mismatch";
+                                return;
+                            }
+                            std::vector<int> vals(req->calibration_values.begin(), req->calibration_values.end());
+                            const IoError e = backend_.ioWriteRegister("gestureForceClb", vals);
+                            res->accepted = isOk(e);
+                            res->message = toString(e);
+                        });
+                logger->info("[{}] Service(Setgestureforceclb): {}", backend_.ioNodeName(), sc.set_service_name);
+            } else if (reg == "actionLibraryIndex") {
+                maps_.services[sc.set_service_name] =
+                    makeGroupedService<rh56dfx_interfaces::srv::Setactionlibraryindex>(
+                        sc.set_service_name,
+                        [this](
+                            const rh56dfx_interfaces::srv::Setactionlibraryindex::Request::SharedPtr req,
+                            rh56dfx_interfaces::srv::Setactionlibraryindex::Response::SharedPtr res) {
+                            if (!rosIncomingHandIdTargetsThisNode(backend_, req->hand_id)) {
+                                res->accepted = false;
+                                res->message = "rejected: hand_id mismatch";
+                                return;
+                            }
+                            const IoError e = backend_.ioWriteRegister("actionLibraryIndex", {static_cast<int>(req->index)});
+                            res->accepted = isOk(e);
+                            res->message = toString(e);
+                        });
+                logger->info("[{}] Service(Setactionlibraryindex): {}", backend_.ioNodeName(), sc.set_service_name);
             } else {
                 throw std::runtime_error(
                     "[RH56DFX] 未映射的写寄存器服务: " + reg + "，请在 rh56dfx_interfaces 增加专用 .srv 并接线");

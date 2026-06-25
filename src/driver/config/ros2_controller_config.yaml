@@ -69,6 +69,32 @@ device_nodes:
         set_service_name: "/hand_left/set_actionSeqIndex"
         is_write_register: true
 
+      # 以下 6 项与 RH5DG2/RH56F1 服务集对齐；RH56DFX 厂商 CAN 文档暂未提供对应寄存器地址，
+      # 协议层 NOT_SUPPORTED 拦截，调用返回 not_supported，待补 CAN 地址后自动生效。
+      - register_name: "mode"
+        set_service_name: "/hand_left/set_mode"
+        is_write_register: true
+
+      - register_name: "pause"
+        set_service_name: "/hand_left/set_pause"
+        is_write_register: true
+
+      - register_name: "stop"
+        set_service_name: "/hand_left/set_stop"
+        is_write_register: true
+
+      - register_name: "resetPara"
+        set_service_name: "/hand_left/set_resetPara"
+        is_write_register: true
+
+      - register_name: "gestureForceClb"
+        set_service_name: "/hand_left/set_gestureForceClb"
+        is_write_register: true
+
+      - register_name: "actionLibraryIndex"
+        set_service_name: "/hand_left/set_actionLibraryIndex"
+        is_write_register: true
+
       - register_name: "errorCode"
         get_service_name: "/hand_left/get_errorCode"
         is_write_register: false
