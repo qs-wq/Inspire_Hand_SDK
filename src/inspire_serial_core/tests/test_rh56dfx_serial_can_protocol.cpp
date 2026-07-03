@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <cstdint>
 #include <vector>
 
 #include "RH56DFX_serial_can_protocol.hpp"
@@ -18,11 +19,39 @@ TestableRH56DFXSerialCanProtocol makeProto() {
     return p;
 }
 
-uint32_t decodeCanId(const std::vector<uint8_t>& frame) {
-    return static_cast<uint32_t>(frame[2]) |
-           (static_cast<uint32_t>(frame[3]) << 8) |
-           (static_cast<uint32_t>(frame[4]) << 16) |
-           (static_cast<uint32_t>(frame[5]) << 24);
+uint32_t buildCanIdForTest(uint8_t rw_flag, int address, int hand_id) {
+    const uint32_t rw = static_cast<uint32_t>(rw_flag & 0x07) << 26;
+    const uint32_t reg = static_cast<uint32_t>(address & 0x0FFF) << 14;
+    const uint32_t hid = static_cast<uint32_t>(hand_id) & 0x3FFF;
+    return rw | reg | hid;
+}
+
+std::vector<uint8_t> buildExpectedSerialCanFrame(
+    uint32_t can_id,
+    const std::vector<uint8_t>& payload8,
+    uint8_t payload_len_field) {
+    std::vector<uint8_t> frame = {
+        0xAA,
+        0xAA,
+        static_cast<uint8_t>(can_id & 0xFF),
+        static_cast<uint8_t>((can_id >> 8) & 0xFF),
+        static_cast<uint8_t>((can_id >> 16) & 0xFF),
+        static_cast<uint8_t>((can_id >> 24) & 0xFF),
+    };
+    frame.insert(frame.end(), payload8.begin(), payload8.end());
+    frame.push_back(payload_len_field);
+    frame.push_back(0x00);
+    frame.push_back(0x01);
+    frame.push_back(0x00);
+
+    uint8_t checksum = 0;
+    for (size_t i = 2; i < frame.size(); ++i) {
+        checksum = static_cast<uint8_t>(checksum + frame[i]);
+    }
+    frame.push_back(checksum);
+    frame.push_back(0x55);
+    frame.push_back(0x55);
+    return frame;
 }
 
 }  // namespace
@@ -43,59 +72,51 @@ TEST(RH56DFXSerialCanProtocol, ReadLengthForSingleByteFingerRegisters) {
     EXPECT_EQ(p.getDefaultReadLength("status"), 6u);
 }
 
-// 读命令帧结构正确（帧头帧尾、CAN ID、长度字段、校验和）
-TEST(RH56DFXSerialCanProtocol, BuildReadCommandFrameFormat) {
+// 读命令字节序列正确（完整帧比对）
+TEST(RH56DFXSerialCanProtocol, BuildReadCommand) {
     auto p = makeProto();
-    auto frame = p.buildReadCommand(1618, 6);  // temp
+    auto cmd = p.buildReadCommand(1618, 6);  // temp
 
-    ASSERT_EQ(frame.size(), 21u);
-    EXPECT_EQ(frame[0], 0xAA);
-    EXPECT_EQ(frame[1], 0xAA);
-    EXPECT_EQ(frame[19], 0x55);
-    EXPECT_EQ(frame[20], 0x55);
-
-    const uint32_t can_id = decodeCanId(frame);
-    const uint8_t rw_flag = static_cast<uint8_t>((can_id >> 26) & 0x07);
-    const int address = static_cast<int>((can_id >> 14) & 0x0FFF);
-    const int hand_id = static_cast<int>(can_id & 0x3FFF);
-    EXPECT_EQ(rw_flag, 0u);
-    EXPECT_EQ(address, 1618);
-    EXPECT_EQ(hand_id, 1);
-
-    EXPECT_EQ(frame[6], 6u);  // 读取长度
-    for (size_t i = 7; i < 14; ++i) {
-        EXPECT_EQ(frame[i], 0u);
-    }
-    EXPECT_EQ(frame[14], 0x01);
-    EXPECT_TRUE(p.validateChecksum(frame));
+    const uint32_t can_id = buildCanIdForTest(0, 1618, 1);
+    std::vector<uint8_t> expected_payload = {0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+    auto expected = buildExpectedSerialCanFrame(can_id, expected_payload, 0x01);
+    EXPECT_EQ(cmd, expected);
 }
 
-// 写命令帧结构正确（数据区小端序，写长度字段=有效数据字节数）
-TEST(RH56DFXSerialCanProtocol, BuildWriteCommandFrameFormat) {
+// 写命令字节序列正确（多值小端序 + 完整帧比对）
+TEST(RH56DFXSerialCanProtocol, BuildWriteCommand) {
     auto p = makeProto();
-    auto frame = p.buildWriteCommand(1486, {100, -1});  // angleSet
+    auto cmd = p.buildWriteCommand(1486, {100, -1});  // angleSet
 
-    ASSERT_EQ(frame.size(), 21u);
-    EXPECT_EQ(frame[0], 0xAA);
-    EXPECT_EQ(frame[1], 0xAA);
-    EXPECT_EQ(frame[19], 0x55);
-    EXPECT_EQ(frame[20], 0x55);
+    const uint32_t can_id = buildCanIdForTest(1, 1486, 1);
+    std::vector<uint8_t> expected_payload = {0x64, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+    auto expected = buildExpectedSerialCanFrame(can_id, expected_payload, 0x04);
+    EXPECT_EQ(cmd, expected);
+}
 
-    const uint32_t can_id = decodeCanId(frame);
-    const uint8_t rw_flag = static_cast<uint8_t>((can_id >> 26) & 0x07);
-    const int address = static_cast<int>((can_id >> 14) & 0x0FFF);
-    const int hand_id = static_cast<int>(can_id & 0x3FFF);
-    EXPECT_EQ(rw_flag, 1u);
-    EXPECT_EQ(address, 1486);
-    EXPECT_EQ(hand_id, 1);
-
-    // payload: 100 -> 0x64 0x00, -1 -> 0xFF 0xFF
-    EXPECT_EQ(frame[6], 0x64);
-    EXPECT_EQ(frame[7], 0x00);
-    EXPECT_EQ(frame[8], 0xFF);
-    EXPECT_EQ(frame[9], 0xFF);
-    EXPECT_EQ(frame[14], 0x04);
+// 校验和验证：正确帧通过，篡改后失败
+TEST(RH56DFXSerialCanProtocol, ValidateChecksum) {
+    auto p = makeProto();
+    const uint32_t can_id = buildCanIdForTest(0, 1618, 1);
+    auto frame = buildExpectedSerialCanFrame(can_id, {0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, 0x01);
     EXPECT_TRUE(p.validateChecksum(frame));
+
+    frame[18] ^= 0xFF;  // 破坏校验和
+    EXPECT_FALSE(p.validateChecksum(frame));
+}
+
+// 帧头/帧尾错误应拒绝
+TEST(RH56DFXSerialCanProtocol, ValidateChecksumRejectsWrongHeaderOrTail) {
+    auto p = makeProto();
+    const uint32_t can_id = buildCanIdForTest(1, 1486, 1);
+    auto frame = buildExpectedSerialCanFrame(can_id, {0x64, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}, 0x04);
+
+    frame[0] = 0xEB;
+    EXPECT_FALSE(p.validateChecksum(frame));
+
+    frame = buildExpectedSerialCanFrame(can_id, {0x64, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}, 0x04);
+    frame[20] = 0xAA;
+    EXPECT_FALSE(p.validateChecksum(frame));
 }
 
 // temp/errorCode/status 按 1 字节解码，避免被拼成 16 位值（如 514）
