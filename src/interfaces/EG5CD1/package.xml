@@ -4,7 +4,7 @@
   <name>eg5cd1_interfaces</name>
   <version>1.0.0</version>
   <description>ROS2 messages for Inspire EG-5CD1 electric gripper (RS485 custom protocol).</description>
-  <maintainer email="your_email@example.com">Your Name</maintainer>
+  <maintainer email="support@inspire-hand.com">Inspire Hand SDK Team</maintainer>
   <license>MIT</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>

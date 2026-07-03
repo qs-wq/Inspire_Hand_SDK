@@ -7,7 +7,7 @@
     Inspire 灵巧手 / 夹爪串口通信核心库（协议抽象、串口、配置、日志）。
     纯 CMake 包，可独立于 ROS 构建，也可被 ROS2 驱动包通过 find_package 复用。
   </description>
-  <maintainer email="dev@example.com">inspire</maintainer>
+  <maintainer email="support@inspire-hand.com">Inspire Hand SDK Team</maintainer>
   <license>Proprietary</license>
 
   <buildtool_depend>cmake</buildtool_depend>

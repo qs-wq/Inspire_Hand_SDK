@@ -213,7 +213,7 @@ def remove_a5_escape(data: bytes) -> bytes:
 
 ### 2.7 已验证硬件示例
 
-以下数据来自实际设备测试（`2.py`，Hand ID=1，`/dev/ttyUSB0` @ 115200）：
+以下数据来自实际设备测试（Hand ID=1，115200 波特率）：
 
 **写：设置小拇指角度 500**
 
@@ -762,61 +762,37 @@ Serial-CAN 读回复（实测）：
 
 ## 8. 编程实现
 
-### 8.1 协议库（`1.py`）
+### 8.1 SDK 协议实现（C++）
 
-项目中的 `1.py` 实现了完整的协议封装，主要 API：
+本 SDK 中 RH56DFX Serial-CAN 协议由以下模块实现：
 
-| 函数/类 | 说明 |
-|---------|------|
-| `RH56DFXProtocol(hand_id)` | 协议主类，构建读写 CAN 逻辑帧 |
-| `build_can_id()` / `parse_can_id()` | 构建/解析 29 位 ext_id |
-| `can_id_to_bytes()` | ext_id → 4 字节（低字节在前） |
-| `frame_to_tx_bytes(frame)` | CAN 逻辑帧 → Serial-CAN 完整下发字节 |
-| `frame_to_tx_bytes_write()` | 写入组帧 |
-| `frame_to_tx_bytes_read()` | 读取组帧 |
-| `calc_checksum()` | 校验和计算 |
-| `short_to_bytes()` / `bytes_to_short()` | 角度值与字节互转 |
+| 模块/文件 | 说明 |
+|-----------|------|
+| `src/inspire_serial_core/src/RH56DFX_serial_can_protocol.cpp` | 协议核心：组帧、读写寄存器、校验和 |
+| `src/inspire_serial_core/include/RH56DFX_serial_can_protocol.hpp` | 协议头文件与寄存器映射 |
+| `src/driver/src/RH56DFX_interface_adapter.cpp` | ROS2 话题/服务适配 |
 
-运行演示（仅打印组帧，不连接硬件）：
+### 8.2 无 ROS 环境示例
+
+`src/inspire_serial_core/examples/RH56DFX.cpp` 提供纯 C++ 读写示例；也可使用 `examples/main.cpp` 配合 `config/device_protocol_rh56dfx_example.yaml` 进行真机验证。
 
 ```bash
-python3 1.py
+cd src/inspire_serial_core
+mkdir -p build && cd build
+cmake .. && make
+./serial_hand_control_node -c ../config/device_protocol_rh56dfx_example.yaml --read-only
 ```
 
-### 8.2 硬件调用（`2.py`）
+### 8.3 ROS2 控制示例
 
-`2.py` 演示如何通过串口连接实际设备：
+启动 ROS2 节点后，可通过话题/服务控制设备（详见项目 `README.md`）：
 
-```python
-import serial
-import time
-from importlib import import_module
-
-hand_mod = import_module("1")
-hand = hand_mod.RH56DFXProtocol(hand_id=1)
-
-ser = serial.Serial("/dev/ttyUSB0", 115200, timeout=0.5)
-
-def send_frame(ser, frame, wait=0.05):
-    ser.reset_input_buffer()
-    tx = bytes(hand_mod.frame_to_tx_bytes(frame))
-    ser.write(tx)
-    ser.flush()
-    time.sleep(wait)
-    return ser.read(256)
-
-# 写角度
-send_frame(ser, hand.set_angle(hand_mod.FingerIndex.PINKY, 500))
-
-# 读角度
-resp = send_frame(ser, hand.read_angle_act(hand_mod.FingerIndex.INDEX))
-angle = resp[6] | (resp[7] << 8)
-print(f"食指实际角度: {angle}")
-
-ser.close()
+```bash
+ros2 launch inspire_control_ros2 inspire_control_single_device.launch.py device_name:=hand_left
+ros2 service call /hand_left/get_status rh56dfx_interfaces/srv/Getstatus "{query: '', hand_id: 1}"
 ```
 
-### 8.3 组帧流程
+### 8.4 组帧流程
 
 ```
 应用层调用                CAN 逻辑层              Serial-CAN 层
@@ -830,20 +806,20 @@ hand.set_angle(500)  →  CANFrame(can_id,data) → frame_to_tx_bytes()
                                               CAN 总线 → 灵巧手
 ```
 
-### 8.4 注意事项
+### 8.5 注意事项
 
 1. **串口权限**：Linux 下需将用户加入 `dialout` 组
 2. **帧间延时**：连续发送建议间隔 10~50 ms
 3. **批量写角度**：6 个手指需分 6 帧发送（每指独立地址）
 4. **直连 CAN**：若使用 SocketCAN 而非串口转接器，只需发送 CAN 逻辑层（ext_id + data），**不需要** Serial-CAN 封装
 
-### 8.5 参考实现文件
+### 8.6 参考实现文件
 
 | 文件 | 说明 |
 |------|------|
-| `1.py` | 协议库 + 组帧演示 |
-| `2.py` | 串口硬件调用示例 |
-| `demo_can.py` | 官方风格完整读写 demo（含回复解析） |
+| `src/inspire_serial_core/examples/RH56DFX.cpp` | RH56DFX 纯 C++ 读写示例 |
+| `src/inspire_serial_core/examples/main.cpp` | 多设备控制入口（支持 demo/固定角度/只读） |
+| `docs/Hand_control.cpp` | 早期 ROS2 服务参考实现（485 机型） |
 
 ---
 

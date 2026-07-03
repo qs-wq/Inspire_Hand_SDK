@@ -90,7 +90,7 @@ void RH56DFXInterfaceAdapter::wireTopics() {
                     tc.state_topic, 10);
                 logger->info("[{}] Publisher(GetCurrentAct1): {}", backend_.ioNodeName(), tc.state_topic);
             } else if (tc.name == "touch_control") {
-                // 接口占位：RH56DFX 无触觉硬件（touchAct 属 NOT_SUPPORTED），同上。
+                // RH56DFX 当前机型无触觉硬件，touchAct 读返回 NotSupported，话题保留但不发布数据。
                 maps_.publishers[tc.state_topic] = node->create_publisher<rh56dfx_interfaces::msg::TouchData1>(
                     tc.state_topic, 10);
                 logger->info("[{}] Publisher(TouchData1): {}", backend_.ioNodeName(), tc.state_topic);
@@ -219,8 +219,7 @@ void RH56DFXInterfaceAdapter::publishTouchData(
     const TouchDataResult& touchData,
     int version)
 {
-    // 接口占位：RH56DFX 无触觉硬件，常态下 touchAct 读返回 NotSupported，本函数不会被调用。
-    // 保留完整发布逻辑，便于未来若接入触觉硬件可直接生效。
+    // RH56DFX 当前机型无触觉硬件，常态下不会进入此发布路径；保留逻辑以便后续扩展。
     (void)version;
     rclcpp::Node* node = backend_.ioNode();
     auto pub = std::dynamic_pointer_cast<rclcpp::Publisher<rh56dfx_interfaces::msg::TouchData1>>(
@@ -413,9 +412,7 @@ void RH56DFXInterfaceAdapter::wireServices() {
                     });
                 logger->info("[{}] Service(Setactionseqindex): {}", backend_.ioNodeName(), sc.set_service_name);
             } else if (reg == "mode") {
-                // 接口对齐占位：RH56DFX 厂商 CAN 文档未提供 mode 寄存器地址，
-                // 协议层 NOT_SUPPORTED_REGISTERS 已拦截，调用将返回 not_supported。
-                // 待拿到 CAN 地址后，在协议 REGISTER_MAP 补地址并从 NOT_SUPPORTED 移除即可启用。
+                // RH56DFX 当前 CAN 协议未定义 mode 寄存器，调用将返回 not_supported。
                 maps_.services[sc.set_service_name] = makeGroupedService<rh56dfx_interfaces::srv::Setmode>(
                     sc.set_service_name,
                     [this](

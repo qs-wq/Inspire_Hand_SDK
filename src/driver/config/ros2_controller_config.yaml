@@ -46,7 +46,7 @@ device_nodes:
         command_topic: "/hand_left/current_set"
         state_topic: "/hand_left/current_actual"
 
-      # 触觉数据话题（接口占位：RH56DFX 无触觉硬件，话题可见但无数据）
+      # 触觉数据话题（RH56DFX 当前机型无触觉硬件，话题保留但不发布数据）
       - name: touch_control
         registers:
           read: ["touchAct"]
@@ -111,8 +111,8 @@ device_nodes:
         set_service_name: "/hand_left/set_actionLibraryIndex"
         is_write_register: true
 
-      # 以下 3 项与 RH5DG2/RH56F1 服务集对齐的占位项；RH56DFX CAN 协议无对应寄存器（mode/pause/stop
-      # 为 485 机型概念），协议层 NOT_SUPPORTED 拦截，调用返回 not_supported。
+      # 以下 3 项在当前 RH56DFX CAN 协议中暂未定义（mode/pause/stop），
+      # 调用将返回 not_supported。
       - register_name: "mode"
         set_service_name: "/hand_left/set_mode"
         is_write_register: true

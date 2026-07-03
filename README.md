@@ -58,7 +58,7 @@ serial_control/                        # = git 根 = colcon 工作区根
 | **inspire_control_ros2** | 节点与驱动逻辑：`inspire_control_node`、`RegisterController`、`RH5DG2InterfaceAdapter` / `RH56F1InterfaceAdapter` / **`RH56H1InterfaceAdapter`** / **`RH56DFXInterfaceAdapter`** / **`EG5CD1InterfaceAdapter`**，配置文件安装在 `share/inspire_control_ros2/config`。 |
 | **rh5dg2_interfaces** | RH5DG2（13 自由度）专用 `msg`/`srv`，例如 `SetAngle1`、`GetAngleAct1`、`Setforce`、`Geterror` 等。 |
 | **rh56f1_interfaces** | RH56 系列（6 自由度）专用 `msg`/`srv`。 |
-| **rh56dfx_interfaces** | RH56DFX Serial-CAN 灵巧手专用 `msg`/`srv`，**服务集已与 RH5DG2/RH56F1 完全对齐**（`Setangle`/`Setforce`/`Setspeed`/`Setid`/`Setbaudrate`/`Setclearerror`/`Setactionseqindex`/`Geterror`/`Getstatus`/`Gettemp` 等底层已支持；`Setmode`/`Setpause`/`Setstop`/`Setresetpara`/`Setgestureforceclb`/`Setactionlibraryindex` 为**接口对齐占位**——厂商 CAN 文档暂未提供这些寄存器地址，调用返回 `not_supported`，补地址后即生效；另含 DFX 特有 `Setsave`）。电流话题 `SetCurrent1`/`GetCurrentAct1` 已映射至 CAN 寄存器 `currentSet`（1020 `CURRENT_LIMIT`）与 `currentAct`（1594 `CURRENT`）；`touchAct` 仍为占位（无触觉硬件）。 |
+| **rh56dfx_interfaces** | RH56DFX Serial-CAN 灵巧手专用 `msg`/`srv`，服务集与 RH5DG2/RH56F1 对齐（`Setangle`/`Setforce`/`Setspeed`/`Setid`/`Setbaudrate`/`Setclearerror`/`Setactionseqindex`/`Geterror`/`Getstatus`/`Gettemp` 等已支持；`Setmode`/`Setpause`/`Setstop`/`Setresetpara`/`Setgestureforceclb`/`Setactionlibraryindex` 在当前 CAN 协议中暂未定义，调用返回 `not_supported`；另含 DFX 特有 `Setsave`）。电流话题 `SetCurrent1`/`GetCurrentAct1` 已映射至 CAN 寄存器 `currentSet`（1020 `CURRENT_LIMIT`）与 `currentAct`（1594 `CURRENT`）；`touchAct` 在当前机型无触觉硬件，话题保留但不发布数据。 |
 | **eg5cd1_interfaces** | **因时 EG-5CD1** 电动夹爪 RS485：`GripperState`、`SetInt32`、`TriggerForHand`、`SetInt32Value`、`GetScalarForHand`；**组合服务** `ForceModeGrasp` / `ForceModeOpen` / `TouchModeGrasp` / `TouchModeOpen`（仅 `hand_id`+`speed`+`force`，内部按文档顺序经 `ioWriteSequence` 在设备 `DeviceWorker` 上**原子串行**写寄存器，见下）。 |
 
 在 **`device_protocol_config.yaml`** 中设置 **`protocol.type`**（如 **`RH5DG2_485`**、**`RH56F1_485`**、**`RH56H1_485`** / **`RH56H1_canfd`**、**`RH56DFX_serial_can`**、**`EG5CD1_485`** 等），启动时自动推导 **`interfaces_profile`**（`RH5DG2` / `RH56F1` / **`RH56H1`** / **`RH56DFX`** / **`EG5CD1`**）并创建对应适配器。
@@ -542,7 +542,7 @@ ros2 service call /hand_left/set_id rh5dg2_interfaces/srv/Setid \
   "{hand_id: 1, device_id: 1}"
 ```
 
-#### RH56DFX 服务/Topic 收发自检（推荐先做）
+#### RH56DFX 服务/Topic 收发自检
 
 当 `protocol.type: RH56DFX_serial_can` 时，可用以下步骤快速确认「服务是否可调用」「Topic 是否正常收发」：
 
@@ -696,7 +696,7 @@ ROS2 设备控制节点，通过 **`InterfaceAdapter`** 使用 **`rh5dg2_interfa
 - 每次事务起始清空串口 RX 缓冲，去除历史帧残留。
 - 回调内不再 `sleep` 持锁；EG-5CD1 组合序列作为单个原子任务在 worker 上执行。
 
-> **真机验证**：已用 RH5DG2（`/dev/ttyUSB0`，115200，Hand_ID 1）做硬件冒烟测试——50Hz 定时读、状态话题发布、只读服务并发调用、`set_angle` 写入与「读+写+服务」混合并发压测均通过；约数万次读取仅出现 1 次瞬时读失败且下一周期立即自恢复、未污染后续帧，验证了「每次事务清空 RX + worker 串行化」对偶发失败的隔离效果。
+> **硬件验证**：已在 RH5DG2 真机环境（115200，Hand_ID 1）验证 50Hz 定时读、状态话题发布、只读服务调用与 `set_angle` 写入；读写并发场景下通信稳定，偶发单次读失败可在下一周期自恢复。
 
 ### 5. 配置系统 (ConfigLoader)
 

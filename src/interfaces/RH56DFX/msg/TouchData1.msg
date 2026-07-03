@@ -1,4 +1,4 @@
-# TouchData1.msg（RH56DFX 无触觉硬件，接口占位，订阅可见但无数据）
+# TouchData1.msg（RH56DFX 当前机型无触觉硬件，话题保留但不发布数据）
 std_msgs/Header header
 int32[5] finger_forces   # 法向力
 int32[5] finger_tangentials # 切向力

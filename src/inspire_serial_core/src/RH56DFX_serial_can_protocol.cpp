@@ -224,7 +224,7 @@ std::vector<uint8_t> RH56DFX_serial_can_Protocol::buildSerialCanFrame(
     if (is_read) {
         frame.push_back(0x01);
     } else {
-        // 按 2.py 兼容：写帧长度字段使用实际数据长度（如 2/4/8）
+        // 写帧长度字段使用实际 payload 字节数（如 2/4/8）
         frame.push_back(static_cast<uint8_t>(std::min(payload.size(), kCanPayloadLength)));
     }
     frame.push_back(0x00);
@@ -478,7 +478,7 @@ IoError RH56DFX_serial_can_Protocol::writeRegister(
         const size_t remain = values.size() - value_offset;
         size_t one_frame_values = 1;
         if (isFingerSeriesRegister(effective_reg) && bytes_per_value == 2) {
-            // 对齐 2.py：6 自由度寄存器优先 4+2 分包
+            // 6 自由度寄存器按 4+2 分包发送
             if (value_offset == 0 && remain >= 4) {
                 one_frame_values = 4;
             } else {
@@ -512,7 +512,7 @@ IoError RH56DFX_serial_can_Protocol::writeRegister(
             bytesToHex(cmd));
 
         try {
-            // 对齐 2.py 的行为：每次发送前清空输入缓冲，避免历史数据干扰当前收包
+            // 每次发送前清空输入缓冲，避免历史数据干扰当前收包
             device->clearBuffer();
             device->write(cmd);
         } catch (...) {
@@ -520,7 +520,7 @@ IoError RH56DFX_serial_can_Protocol::writeRegister(
             return IoError::DeviceError;
         }
 
-        // 完全对齐 2.py：运动命令只发送，不依赖回包判定成功
+        // 运动类写命令只发送，不依赖回包判定成功
         if (isMotionWriteRegister(effective_reg)) {
             value_offset += one_frame_values;
             // 协议文档建议帧间 10~50ms，这里取 20ms 兼顾稳定性
@@ -607,7 +607,7 @@ RegisterReadResult RH56DFX_serial_can_Protocol::readRegister(
             bytesToHex(cmd));
 
         try {
-            // 对齐 2.py 的行为：每次发送前清空输入缓冲，避免历史数据干扰当前收包
+            // 每次发送前清空输入缓冲，避免历史数据干扰当前收包
             device->clearBuffer();
             device->write(cmd);
         } catch (...) {
