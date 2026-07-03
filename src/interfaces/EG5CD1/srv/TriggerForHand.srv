@@ -1,0 +1,6 @@
+# 写触发类寄存器（如 CLEAR_ERROR、SAVE 等写 1）
+int32 hand_id
+---
+bool accepted
+
+string message

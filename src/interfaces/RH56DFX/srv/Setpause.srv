@@ -1,0 +1,6 @@
+int32 hand_id
+int32 pause_flag
+---
+bool accepted
+
+string message

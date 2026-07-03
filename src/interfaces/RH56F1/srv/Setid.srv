@@ -1,0 +1,6 @@
+int32 hand_id
+int32 device_id
+---
+bool accepted
+
+string message

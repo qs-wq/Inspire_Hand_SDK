@@ -1,0 +1,7 @@
+string command
+int32 hand_id
+int32[13] joint_values
+---
+bool accepted
+
+string message

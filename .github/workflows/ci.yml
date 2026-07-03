@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+
+jobs:
+  build-test-lint:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup ROS 2
+        uses: ros-tooling/setup-ros@v0.7
+        with:
+          required-ros-distributions: humble
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y \
+            libboost-system-dev \
+            libboost-thread-dev \
+            libyaml-cpp-dev \
+            libspdlog-dev \
+            libgtest-dev \
+            clang-format \
+            clang-tidy
+          # Ubuntu 22.04 的 libgtest-dev 需本地编译后 CMake 才能 find_package(GTest)
+          cd /usr/src/gtest
+          sudo cmake -S . -B build -DCMAKE_INSTALL_PREFIX=/usr/local
+          sudo cmake --build build -j"$(nproc)"
+          sudo cmake --install build
+
+      - name: colcon build
+        shell: bash
+        run: |
+          set -eo pipefail
+          # ROS setup.bash 会引用未导出的变量，不能与 set -u 同用
+          source /opt/ros/humble/setup.bash
+          colcon build \
+            --cmake-args \
+              -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+              -DINSPIRE_SERIAL_CORE_BUILD_EXAMPLES=OFF
+
+      - name: colcon test
+        shell: bash
+        run: |
+          set -eo pipefail
+          source /opt/ros/humble/setup.bash
+          colcon test --packages-select inspire_serial_core
+          colcon test-result --verbose
+
+      - name: clang-format
+        run: |
+          chmod +x scripts/check_clang_format.sh
+          ./scripts/check_clang_format.sh
+
+      - name: clang-tidy
+        shell: bash
+        run: |
+          chmod +x scripts/run_clang_tidy.sh
+          ./scripts/run_clang_tidy.sh

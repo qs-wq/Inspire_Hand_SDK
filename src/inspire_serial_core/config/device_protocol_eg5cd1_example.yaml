@@ -1,0 +1,17 @@
+# 与 src/ros2/src/driver/config/device_protocol_eg5cd1_example.yaml 相同，便于非 ROS 路径引用
+protocol:
+  type: EG5CD1_485
+
+devices:
+  - name: gripper_main
+    port: /dev/ttyUSB0
+    baudrate: 115200
+    Hand_ID: 1
+
+logging:
+  level: INFO
+  file: logs/eg5cd1_gripper.log
+  console: true
+  file_enable: true
+  max_file_size_mb: 10
+  max_files: 5

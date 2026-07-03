@@ -1,0 +1,6 @@
+int32 hand_id
+int32 value
+---
+bool accepted
+
+string message

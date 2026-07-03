@@ -1,0 +1,9 @@
+---
+# 静态分析：聚焦 clang-analyzer，避免 init-variables 等对既有代码噪声过大
+Checks: >
+  -*,
+  clang-analyzer-*,
+  modernize-use-nullptr
+WarningsAsErrors: ''
+HeaderFilterRegex: '.*'
+FormatStyle: file

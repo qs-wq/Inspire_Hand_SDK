@@ -1,0 +1,8 @@
+# 触控夹取：切触控(2) → 速度 → 正力度 → 触控夹取寄存器写 1；步骤间隔 3ms，全程阻塞定时读
+int32 hand_id
+int32 speed
+int32 force
+---
+bool accepted
+
+string message

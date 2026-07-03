@@ -1,0 +1,20 @@
+# RH56DFX Serial-CAN 示例配置
+# 串口由 USB-CAN 转接器提供，默认 115200
+
+protocol:
+  type: RH56DFX_serial_can
+
+devices:
+  - name: hand_left
+    port: /dev/ttyUSB0
+    baudrate: 115200
+    Hand_ID: 1
+
+logging:
+  level: INFO
+  file: logs/hand_control.log
+  console: true
+  file_enable: true
+  max_file_size_mb: 10
+  max_files: 5
+
