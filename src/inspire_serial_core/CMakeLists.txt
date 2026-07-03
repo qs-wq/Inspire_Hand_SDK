@@ -54,6 +54,15 @@ target_link_libraries(inspire_serial_core PUBLIC
 target_compile_features(inspire_serial_core PUBLIC cxx_std_17)
 
 # ---------------------------------------------------------------------------
+# 单元测试（仅在 BUILD_TESTING=ON 时启用）
+# ---------------------------------------------------------------------------
+include(CTest)
+if(BUILD_TESTING)
+    find_package(GTest REQUIRED)
+    add_subdirectory(tests)
+endif()
+
+# ---------------------------------------------------------------------------
 # 安装 + 导出：供其它包 find_package(inspire_serial_core) 使用。
 # ---------------------------------------------------------------------------
 include(GNUInstallDirs)

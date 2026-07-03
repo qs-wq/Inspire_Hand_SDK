@@ -55,6 +55,24 @@ bool isFingerSeriesRegister(const std::string& reg_name) {
            reg_name == "temp";
 }
 
+// 只读且“每指 1 字节”的寄存器：errorCode / status / temp。
+// 这类寄存器不在写规则表（REGISTER_WRITE_RULE_MAP）中，若按默认 2 字节解码，
+// 会把相邻寄存器数据两两拼成 16 位错误值（例如 errorCode 读出 514）。
+bool isSingleBytePerFingerRegister(const std::string& reg_name) {
+    return reg_name == "errorCode" ||
+           reg_name == "status" ||
+           reg_name == "temp";
+}
+
+int normalizeTempValue(int value) {
+    // 兼容现场历史数据：若出现被错误拼接/偏移后的大值，
+    // 按约定规则做一次归一化。
+    if (value > 6535) {
+        return value - 6535;
+    }
+    return value;
+}
+
 bool isMotionWriteRegister(const std::string& reg_name) {
     return reg_name == "posSet" ||
            reg_name == "angleSet" ||
@@ -79,6 +97,8 @@ const std::map<std::string, int> RH56DFX_serial_can_Protocol::REGISTER_MAP = {
     {"baudRate", 4008},          // REDU_RATIO
     {"clearError", 4016},        // CLEAR_ERROR
     {"save", 4020},              // SAVE
+    {"resetPara", 1006},         // RESET_PARA
+    {"gestureForceClb", 1009},   // GESTURE_FORCE_CLB
     {"currentSet", 1020},        // CURRENT_LIMIT(m)，各自由度电流保护阈值（mA）
     {"posSet", 1474},
     {"angleSet", 1486},
@@ -90,8 +110,9 @@ const std::map<std::string, int> RH56DFX_serial_can_Protocol::REGISTER_MAP = {
     {"errorCode", 1606},
     {"status", 1612},
     {"temp", 1618},
-    {"actionSeqIndex", 2320},
-    {"actionSeqRun", 2322},
+    {"actionSeqIndex", 2321},      // ACTION_SEQ_INDEX
+    {"actionSeqRun", 2324},        // ACTION_SEQ_RUN
+    {"actionLibraryIndex", 2321},  // ACTION_SEQ_INDEX
     {"touchAct", 3000},
 };
 
@@ -100,6 +121,8 @@ const std::map<std::string, size_t> RH56DFX_serial_can_Protocol::REGISTER_READ_L
     {"baudRate", 1},
     {"clearError", 1},
     {"save", 1},
+    {"resetPara", 1},
+    {"gestureForceClb", 1},
     {"currentSet", 12},
     {"posSet", 12},
     {"angleSet", 12},
@@ -108,11 +131,12 @@ const std::map<std::string, size_t> RH56DFX_serial_can_Protocol::REGISTER_READ_L
     {"angleAct", 12},
     {"forceAct", 12},
     {"currentAct", 12},
-    {"errorCode", 12},
-    {"status", 12},
-    {"temp", 12},
+    {"errorCode", 6},  // 每指 1 字节，共 6 字节（与 status/temp 一致）
+    {"status", 6},     // 每指 1 字节，共 6 字节
+    {"temp", 6},       // 每指 1 字节，共 6 字节（对齐温度读取规则 response[6:12]）
     {"actionSeqIndex", 2},
     {"actionSeqRun", 2},
+    {"actionLibraryIndex", 1},
 };
 
 const std::map<std::string, RH56DFX_serial_can_Protocol::RegisterWriteRule>
@@ -121,6 +145,8 @@ RH56DFX_serial_can_Protocol::REGISTER_WRITE_RULE_MAP = {
     {"baudRate", {1, 1}},
     {"clearError", {1, 1}},
     {"save", {1, 1}},
+    {"resetPara", {1, 1}},
+    {"gestureForceClb", {1, 1}},
     {"currentSet", {2, 6}},
     {"posSet", {2, 6}},
     {"angleSet", {2, 6}},
@@ -128,18 +154,16 @@ RH56DFX_serial_can_Protocol::REGISTER_WRITE_RULE_MAP = {
     {"speedSet", {2, 6}},
     {"actionSeqIndex", {2, 1}},
     {"actionSeqRun", {2, 1}},
+    {"actionLibraryIndex", {1, 1}},
 };
 
 const std::set<std::string> RH56DFX_serial_can_Protocol::NOT_SUPPORTED_REGISTERS = {
-    "resetPara",
-    "gestureForceClb",
     "defaultSpeedSet",
     "defaultForceSet",
     "posAct",
     "mode",
     "pause",
     "stop",
-    "actionLibraryIndex",
     "touchAct",
 };
 
@@ -389,6 +413,13 @@ std::vector<int> RH56DFX_serial_can_Protocol::decodeValuesByRule(
         rule = it_rule->second;
     }
 
+    // errorCode / status / temp 属于只读寄存器，不在写规则表中，
+    // 需强制按“每指 1 字节”规则解码（对齐温度读取规则），否则会被
+    // 默认的 2 字节规则错误拼接（例如 errorCode 读出 514=0x0202）。
+    if (isSingleBytePerFingerRegister(reg_name)) {
+        rule.value_width_bytes = 1;
+    }
+
     std::vector<int> values;
     if (rule.value_width_bytes == 1) {
         values.reserve(payload.size());
@@ -627,6 +658,12 @@ RegisterReadResult RH56DFX_serial_can_Protocol::readRegister(
             reg_name,
             merged_payload.size());
         return {IoError::BadResponse, {}};
+    }
+
+    if (reg_name == "temp") {
+        for (auto& v : decoded) {
+            v = normalizeTempValue(v);
+        }
     }
 
     // 与 RH5DG2/RH56F1 读流程对齐：读成功时在 INFO 级别输出值，
