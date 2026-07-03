@@ -542,6 +542,50 @@ ros2 service call /hand_left/set_id rh5dg2_interfaces/srv/Setid \
   "{hand_id: 1, device_id: 1}"
 ```
 
+#### RH56DFX 服务/Topic 收发自检（推荐先做）
+
+当 `protocol.type: RH56DFX_serial_can` 时，可用以下步骤快速确认「服务是否可调用」「Topic 是否正常收发」：
+
+```bash
+# 0) 确保环境干净（避免多节点重名导致结果混乱）
+pkill -f inspire_control_node || true
+
+# 1) 启动 RH56DFX 单设备节点
+ros2 launch inspire_control_ros2 inspire_control_single_device.launch.py \
+  device_name:=hand_left
+```
+
+另开一个终端执行：
+
+```bash
+source install/setup.bash
+
+# 2) 节点与服务类型检查（应只有 1 个 /hand_left/hand_left_node）
+ros2 node list
+ros2 service type /hand_left/get_status
+
+# 3) 服务读测试（RH56DFX 接口包）
+ros2 service call /hand_left/get_status rh56dfx_interfaces/srv/Getstatus \
+  "{query: '', hand_id: 1}"
+ros2 service call /hand_left/get_errorCode rh56dfx_interfaces/srv/Geterror \
+  "{query: '', hand_id: 1}"
+ros2 service call /hand_left/get_temp rh56dfx_interfaces/srv/Gettemp \
+  "{query: '', hand_id: 1}"
+
+# 4) Topic 写+读联调（6 个关节）
+ros2 topic echo /hand_left/angle_actual
+ros2 topic pub --once /hand_left/angle_set rh56dfx_interfaces/msg/SetAngle1 \
+  "{hand_id: 1, joint_values: [100,100,100,100,100,100]}"
+```
+
+判定建议：
+
+- **服务链路正常**：命令出现 `response:`，且 `message='ok'`。
+- **设备通信异常**：有 `response:` 但 `message='device_error'`（说明 ROS2 服务通，但设备侧收发失败）。
+- **服务未就绪**：长时间 `waiting for service to become available...`（通常是节点未启动/命名空间不匹配）。
+- **Topic 正常**：`/hand_left/angle_set` 下发后，`/hand_left/angle_actual` 在后续周期出现可观测变化。
+- **Topic 被忽略**：`hand_id` 与配置 `Hand_ID` 不一致时，订阅回调会忽略该命令。
+
 ## 文档说明
 
 ### 项目架构说明
