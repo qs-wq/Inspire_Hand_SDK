@@ -10,6 +10,7 @@ find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(rh5dg2_interfaces REQUIRED)
 find_package(rh56f1_interfaces REQUIRED)
+find_package(rh56h1_interfaces REQUIRED)
 find_package(rh56dfx_interfaces REQUIRED)
 find_package(eg5cd1_interfaces REQUIRED)
 
@@ -43,6 +44,7 @@ ament_target_dependencies(inspire_control_node
     std_msgs
     rh5dg2_interfaces
     rh56f1_interfaces
+    rh56h1_interfaces
     rh56dfx_interfaces
     eg5cd1_interfaces
 )

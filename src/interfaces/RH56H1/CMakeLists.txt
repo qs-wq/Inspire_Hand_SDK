@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project(rh56f1_interfaces)
+project(rh56h1_interfaces)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
@@ -19,7 +19,11 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/SetForce1.msg"
   "msg/SetCurrent1.msg"
   "msg/SetSpeed1.msg"
+  "msg/SetPercent1.msg"
+  "msg/GetPercentAct1.msg"
   "srv/Setangle.srv"
+  "srv/Setpercent.srv"
+  "srv/Getpercent.srv"
   "srv/Setforce.srv"
   "srv/Setspeed.srv"
   "srv/Setmode.srv"

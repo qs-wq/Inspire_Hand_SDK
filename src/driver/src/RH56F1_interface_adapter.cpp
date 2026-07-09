@@ -29,6 +29,7 @@
 #include <rh56f1_interfaces/srv/setmode.hpp>
 #include <rh56f1_interfaces/srv/setpause.hpp>
 #include <rh56f1_interfaces/srv/setresetpara.hpp>
+#include <rh56f1_interfaces/srv/setsave.hpp>
 #include <rh56f1_interfaces/srv/setspeed.hpp>
 #include <rh56f1_interfaces/srv/setstop.hpp>
 
@@ -342,6 +343,22 @@ void RH56F1InterfaceAdapter::wireServices() {
                         res->message = toString(e);
                     });
                 logger->info("[{}] Service(Setclearerror): {}", backend_.ioNodeName(), sc.set_service_name);
+            } else if (reg == "save") {
+                maps_.services[sc.set_service_name] = this->makeGroupedService<rh56f1_interfaces::srv::Setsave>(
+                    sc.set_service_name, [this, reg](const rh56f1_interfaces::srv::Setsave::Request::SharedPtr req,
+                                                     rh56f1_interfaces::srv::Setsave::Response::SharedPtr res) {
+                        if (!rosIncomingHandIdTargetsThisNode(backend_, req->hand_id)) {
+                            res->accepted = false;
+                            res->message = "rejected: hand_id mismatch";
+                            getLogger()->warn("[{}] 拒绝 Setsave: hand_id={}（本节点 Hand_ID={}）",
+                                              backend_.ioNodeName(), req->hand_id, backend_.ioHandId());
+                            return;
+                        }
+                        const IoError e = backend_.ioWriteRegister(reg, {static_cast<int>(req->save_code)});
+                        res->accepted = isOk(e);
+                        res->message = toString(e);
+                    });
+                logger->info("[{}] Service(Setsave): {}", backend_.ioNodeName(), sc.set_service_name);
             } else if (reg == "resetPara") {
                 maps_.services[sc.set_service_name] = this->makeGroupedService<rh56f1_interfaces::srv::Setresetpara>(
                     sc.set_service_name, [this, reg](const rh56f1_interfaces::srv::Setresetpara::Request::SharedPtr req,

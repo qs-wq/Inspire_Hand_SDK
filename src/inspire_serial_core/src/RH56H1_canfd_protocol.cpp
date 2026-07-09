@@ -5,30 +5,9 @@
 #include <algorithm>
 #include <sstream>
 
-// CAN-FD 合法字节长度列表
-static const std::vector<size_t> VALID_CANFD_LENGTHS = {0, 1, 2, 3, 4, 5, 6, 7, 8, 12, 16, 20, 24, 32, 48, 64};
-
-// 将请求字节长度补齐到最近的合法 CAN-FD 字节长度
+// 将请求字节长度补齐到最近的合法 CAN-FD 字节长度（复用 485 基类实现）
 size_t RH56H1_canfd_Protocol::adjustToValidCanfdLength(size_t requested_bytes) const {
-    // 如果请求长度已经是合法长度，直接返回
-    if (std::find(VALID_CANFD_LENGTHS.begin(), VALID_CANFD_LENGTHS.end(), requested_bytes) !=
-        VALID_CANFD_LENGTHS.end()) {
-        return requested_bytes;
-    }
-
-    // 如果请求长度超过最大值64，返回64（分帧逻辑会在上层处理）
-    if (requested_bytes > 64) {
-        return 64;
-    }
-
-    // 向上补齐到最近的合法字节长度
-    for (size_t valid_len : VALID_CANFD_LENGTHS) {
-        if (valid_len >= requested_bytes) {
-            return valid_len;
-        }
-    }
-
-    return 64;
+    return adjustToValidFrameLength(requested_bytes);
 }
 
 // 写命令构建：与 485 版本格式一致，只是允许更大的数据长度（最多 64 字节）
@@ -345,6 +324,8 @@ RegisterReadResult RH56H1_canfd_Protocol::readRegister(Device device, RingBuffer
         }
     }
 
+    applyRegisterDecodeRule(reg_name, all_values);
+
     // 打印汇总日志（只打印逻辑请求的数据）
     oss << "[CANFD] 读取" << reg_name << ":(";
     for (size_t i = 0; i < all_values.size(); ++i) {
@@ -361,11 +342,15 @@ RegisterReadResult RH56H1_canfd_Protocol::readRegister(Device device, RingBuffer
 // 触觉数据读取（逻辑长度固定 68 字节），内部按照 64B + 4B 拆两帧
 TouchReadResult RH56H1_canfd_Protocol::readTouchData(Device device, RingBuffer& ringBuffer, int version) {
 
+    if (version == 2) {
+        return RH56H1_485_Protocol::readTouchData(device, ringBuffer, version);
+    }
+
     auto logger = getLogger();
     std::ostringstream oss;
 
     if (version != 1) {
-        logger->warn("[CANFD-触觉] 暂只实现版本1解析，version={}, 返回失败", version);
+        logger->warn("[CANFD-触觉] 暂只实现版本1/2，version={}, 返回失败", version);
         return {IoError::NotSupported, {}};
     }
 

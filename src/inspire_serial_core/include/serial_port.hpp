@@ -35,6 +35,9 @@ public:
     void setProtocol(std::shared_ptr<Protocol> protocol);
 
 private:
+    // 开启低延迟模式（Linux 下清除 USB-串口 latency_timer 影响）
+    void enableLowLatency();
+
     // 异步读取处理
     void startAsyncRead();
     void handleRead(const boost::system::error_code& error, size_t bytes_transferred);

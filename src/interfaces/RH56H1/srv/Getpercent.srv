@@ -1,0 +1,8 @@
+# 百分比读取服务（0.0~100.0）
+# 用于读取角度实际值(angleAct)并按各指角度范围换算成百分比返回；0%=握紧、100%=张开
+string query
+int32 hand_id
+---
+float32[6] joint_values
+string[6] joint_names
+string message

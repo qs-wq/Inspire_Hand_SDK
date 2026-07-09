@@ -1,6 +1,6 @@
-# RH56H1 ROS2 控制器默认配置（launch 默认加载本文件）
-# 与 ros2_controller_rh56h1_example.yaml 内容一致；触觉为 version2（压阻式），touch_control.touch_version=2。
-# 使用方式：--controller-config 可省略（默认即本文件），或显式指向 ros2_controller_rh56h1_example.yaml
+# RH56H1 ROS2 控制器示例配置（与 ros2_controller_config.yaml 内容一致）
+# 与 RH56F1 结构一致；唯一区别是触觉为 version2（压阻式），因此 touch_control 的 touch_version 设为 2。
+# 使用方式：--controller-config 指向本文件，--device-config 指向 device_protocol_rh56h1_example.yaml
 
 device_nodes:
   - device: hand_left

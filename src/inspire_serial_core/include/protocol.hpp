@@ -18,6 +18,20 @@ struct TouchDataResult {
 
     FingerDataMap fingerResults;
     PalmDataMap palmResults;
+
+    // ---- 触觉 version2（压阻式，参考 RH56H1_SDK）数据 ----
+    // 说明：以下字段仅供 version2 使用，version1（电容式）不填充、行为不受影响，纯新增兼容。
+    struct FingerTouchV2 {
+        std::vector<int16_t> tip_end;   // 指端触觉 2*2 = 4 个 int16
+        std::vector<int16_t> tip_touch; // 指尖触觉 6*5 = 30 个 int16
+        float force_x = 0.0f;           // 合力 x 轴
+        float force_y = 0.0f;           // 合力 y 轴
+        float force_z = 0.0f;           // 合力 z 轴
+    };
+    // 手指顺序键："pinky"/"ring"/"middle"/"index"/"thumb"
+    std::map<std::string, FingerTouchV2> fingerResultsV2;
+    // 掌心触觉 15*6 = 90 个 int16
+    std::vector<int16_t> palmResultsV2;
 };
 
 // 读触觉数据结果：错误码 + 触觉数据

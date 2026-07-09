@@ -3,6 +3,14 @@
 #include "protocol.hpp"
 #include <iostream>
 
+// Linux 低延迟串口：清除 USB 转串口芯片（FTDI 等）默认 16ms 的 latency_timer，
+// 使小数据回包（灵巧手回复约 20 字节）几乎立即返回，避免 50Hz 连读时偶发超时。
+#if defined(__linux__)
+#include <cstring>
+#include <linux/serial.h>
+#include <sys/ioctl.h>
+#endif
+
 SerialPortBase::SerialPortBase(const std::string& port, unsigned int baudrate)
     : serial_(io_context_), work_guard_(boost::asio::make_work_guard(io_context_)) {
 
@@ -17,6 +25,9 @@ SerialPortBase::SerialPortBase(const std::string& port, unsigned int baudrate)
         serial_.set_option(boost::asio::serial_port_base::parity(boost::asio::serial_port_base::parity::none));
         serial_.set_option(
             boost::asio::serial_port_base::flow_control(boost::asio::serial_port_base::flow_control::none));
+
+        // 开启低延迟模式（等效 latency_timer=1ms）。仅需对已打开的 fd 操作，无需 root。
+        enableLowLatency();
 
         // 启动异步读取
         startAsyncRead();
@@ -57,6 +68,32 @@ SerialPortBase::~SerialPortBase() {
     }
 
     std::cout << "Serial port closed" << std::endl;
+}
+
+void SerialPortBase::enableLowLatency() {
+#if defined(__linux__)
+    // 通过 TIOCGSERIAL/TIOCSSERIAL 设置 ASYNC_LOW_LATENCY 标志。
+    // 该标志会让内核驱动把 USB-串口芯片的 latency_timer 视为 1ms，
+    // 从而把回包往返延时从 ~12-16ms 降到 ~3-4ms，彻底消除 50Hz 轮询下的偶发超时。
+    try {
+        int fd = serial_.native_handle();
+        struct serial_struct serial_info;
+        std::memset(&serial_info, 0, sizeof(serial_info));
+        if (::ioctl(fd, TIOCGSERIAL, &serial_info) == 0) {
+            serial_info.flags |= ASYNC_LOW_LATENCY;
+            if (::ioctl(fd, TIOCSSERIAL, &serial_info) == 0) {
+                std::cout << "Serial low-latency mode enabled (latency_timer≈1ms)" << std::endl;
+            } else {
+                std::cerr << "Warning: failed to set ASYNC_LOW_LATENCY (读取仍可用，延时较高)" << std::endl;
+            }
+        } else {
+            // 某些虚拟串口/驱动不支持 TIOCGSERIAL，忽略即可（不影响功能，仅延时较高）。
+            std::cerr << "Warning: TIOCGSERIAL not supported on this port, skip low-latency" << std::endl;
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "Warning: enableLowLatency exception: " << e.what() << std::endl;
+    }
+#endif
 }
 
 void SerialPortBase::startAsyncRead() {

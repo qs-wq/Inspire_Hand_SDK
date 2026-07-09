@@ -2,7 +2,7 @@
 
 #include "interface_adapter.hpp"
 
-/** RH56H1 产品线：6 关节 + rh56f1_interfaces（与 F1 相同，触觉待单独适配） */
+/** RH56H1 产品线：6 关节 + rh56h1_interfaces（寄存器/帧与 F1 相同，触觉为 version2 压阻式） */
 class RH56H1InterfaceAdapter : public InterfaceAdapter {
 public:
     using InterfaceAdapter::InterfaceAdapter;
