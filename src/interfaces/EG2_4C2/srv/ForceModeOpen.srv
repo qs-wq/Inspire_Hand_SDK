@@ -1,0 +1,8 @@
+# 张开：设置 catchMode=0，再连续写入目标开口度1000、速度和力阈值；请求用负值表示张开方向
+int32 hand_id
+int32 speed
+int32 force
+---
+bool accepted
+
+string message

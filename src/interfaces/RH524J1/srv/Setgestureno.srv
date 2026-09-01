@@ -1,0 +1,11 @@
+# Request
+int32 hand_id
+string command
+int16 gesture_no
+
+---
+
+# Response
+bool accepted
+
+string message

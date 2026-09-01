@@ -219,7 +219,7 @@ void printUsage(const char* program) {
               << "\n"
               << "选项:\n"
               << "  --config|-c <yaml>       设备协议配置（默认: " << kDefaultConfigPath << ")\n"
-              << "  --angles <v1,v2,...>   固定角度，逗号分隔（RH56DFX/RH56F1=6个，RH5DG2=13个）\n"
+              << "  --angles <v1,v2,...>   固定角度，逗号分隔（RH56DFX/RH56F1=6个，RH5DG2=13个，RH524J1=24个）\n"
               << "  --angles-file <path>     从文件读取角度（一行，逗号或空格分隔）\n"
               << "  --demo                   自动开合演示（未指定 --angles 时默认）\n"
               << "  --read-only              只读 angleAct，不写 angleSet\n"

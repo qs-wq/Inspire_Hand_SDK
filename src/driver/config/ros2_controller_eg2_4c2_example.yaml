@@ -1,0 +1,96 @@
+# EG2-4C2 夹爪 ROS2 节点示例配置
+# 力控一键序列：见 README「组合服务」；默认服务名 /gripper/force_mode_grasp 等（可用 eg2_4c2_composite_service_prefix 改前缀）。
+# 4C2 手册只定义 catchMode 0/1 两档（位置/力控），无触控模式（无 CATCH_MODE_CLOSE/OPEN 寄存器）。
+
+device_nodes:
+  - device: gripper_main
+    update_rate: 50
+    publish_header:
+      frame_id: "gripper_link"
+
+    topics:
+      - name: gripper_state
+        registers:
+          read: ["gripperStatusBlock"]
+        state_topic: "/gripper/state"
+
+      - name: open_len_set
+        registers:
+          write: ["openLenSet"]
+        command_topic: "/gripper/open_len_set"
+
+      - name: speed_set
+        registers:
+          write: ["speedSet"]
+        command_topic: "/gripper/speed_set"
+
+      - name: force_set
+        registers:
+          write: ["forceSet"]
+        command_topic: "/gripper/force_set"
+
+      - name: catch_mode_set
+        registers:
+          write: ["catchMode"]
+        command_topic: "/gripper/catch_mode_set"
+
+    services:
+      - register_name: "openLenSet"
+        set_service_name: "/gripper/set_open_len"
+        is_write_register: true
+
+      - register_name: "speedSet"
+        set_service_name: "/gripper/set_speed"
+        is_write_register: true
+
+      - register_name: "forceSet"
+        set_service_name: "/gripper/set_force"
+        is_write_register: true
+
+      - register_name: "clearError"
+        set_service_name: "/gripper/clear_error"
+        is_write_register: true
+
+      - register_name: "save"
+        set_service_name: "/gripper/save_params"
+        is_write_register: true
+
+      - register_name: "defaultPar"
+        set_service_name: "/gripper/restore_default"
+        is_write_register: true
+
+      - register_name: "stop"
+        set_service_name: "/gripper/stop"
+        is_write_register: true
+
+      - register_name: "id"
+        set_service_name: "/gripper/set_id"
+        is_write_register: true
+
+      - register_name: "baud"
+        set_service_name: "/gripper/set_baud_index"
+        is_write_register: true
+
+      - register_name: "catchMode"
+        set_service_name: "/gripper/set_mode_service"
+        is_write_register: true
+
+      - register_name: "maxOpenLen"
+        set_service_name: "/gripper/set_max_open_len"
+        is_write_register: true
+
+      - register_name: "minOpenLen"
+        set_service_name: "/gripper/set_min_open_len"
+        is_write_register: true
+
+      - register_name: "errorCode"
+        get_service_name: "/gripper/get_error"
+        is_write_register: false
+
+      - register_name: "temp"
+        get_service_name: "/gripper/get_temp"
+        is_write_register: false
+
+      - register_name: "status"
+        get_service_name: "/gripper/get_status"
+        is_write_register: false

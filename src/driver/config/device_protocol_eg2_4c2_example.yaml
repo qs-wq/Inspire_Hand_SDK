@@ -1,0 +1,20 @@
+# 因时 EG2-4C2 电动夹爪 Serial-CAN 示例配置（见 docs/4C2夹爪CAN转Serial通信规则.md）
+# 串口由 USB-CAN 转接器提供，默认 115200；CAN 侧 500Kbps
+# 使用方式：启动节点时 --device-config 指向本文件，且 ros2_controller 使用 ros2_controller_eg2_4c2_example.yaml
+
+protocol:
+  type: EG2_4C2_serial_can
+
+devices:
+  - name: gripper_main
+    port: /dev/ttyUSB0
+    baudrate: 115200
+    Hand_ID: 1
+
+logging:
+  level: INFO
+  file: logs/eg2_4c2_gripper.log
+  console: true
+  file_enable: true
+  max_file_size_mb: 10
+  max_files: 5

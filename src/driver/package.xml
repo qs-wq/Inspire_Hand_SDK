@@ -3,7 +3,7 @@
 <package format="3">
   <name>inspire_control_ros2</name>
   <version>1.0.0</version>
-  <description>Inspire 灵巧手与 EG-5CD1 夹爪 ROS2 控制节点：rh5dg2_interfaces、rh56f1_interfaces、rh56h1_interfaces、rh56dfx_interfaces、eg5cd1_interfaces。</description>
+  <description>Inspire 灵巧手与 EG-5CD1 夹爪 ROS2 控制节点：rh524j1_interfaces、rh5dg2_interfaces、rh56f1_interfaces、rh56h1_interfaces、rh56dfx_interfaces、eg5cd1_interfaces、eg2_4c2_interfaces。</description>
   <maintainer email="support@inspire-hand.com">Inspire Hand SDK Team</maintainer>
   <license>MIT</license>
 
@@ -17,6 +17,8 @@
   <depend>rh56h1_interfaces</depend>
   <depend>rh56dfx_interfaces</depend>
   <depend>eg5cd1_interfaces</depend>
+  <depend>eg2_4c2_interfaces</depend>
+  <depend>rh524j1_interfaces</depend>
   <depend>inspire_serial_core</depend>
 
   <build_depend>yaml-cpp</build_depend>

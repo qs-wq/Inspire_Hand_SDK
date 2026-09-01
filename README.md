@@ -8,7 +8,7 @@
 
 本项目是一个模块化的灵巧手控制系统，支持：
 - ✅ **多设备支持**：同时控制多个灵巧手设备（如左手、右手）
-- ✅ **多协议支持**：通过工厂模式支持多种通信协议（RH56F1_485、**RH56H1_485** / **RH56H1_canfd**、**RH56DFX_serial_can**、RH5DG2_485、EG5CD1_485 等）
+- ✅ **多协议支持**：通过工厂模式支持多种通信协议（**RH524J1_485**、RH56F1_485、**RH56H1_485** / **RH56H1_canfd**、**RH56DFX_serial_can**、RH5DG2_485、EG5CD1_485、**EG2_4C2_serial_can** 等）
 - ✅ **动态配置**：通过 YAML 配置设备协议与 ROS2 话题/服务
 - ✅ **双通信模式**：支持话题（实时控制）和服务（按需调用）两种方式
 - ✅ **异步串口通信**：基于Boost.Asio的异步串口通信，支持超时和错误处理
@@ -37,11 +37,13 @@ serial_control/                        # = git 根 = colcon 工作区根
 │   │   ├── config/                    #    device_protocol_*.yaml、ros2_controller_*.yaml
 │   │   └── launch/                    #    inspire_control_*.launch.py
 │   └── interfaces/                    # ③ 接口包
+│       ├── RH524J1/                   #    rh524j1_interfaces（24 自由度腱绳手）
 │       ├── RH5DG2/                    #    rh5dg2_interfaces（13 自由度）
 │       ├── RH56F1/                    #    rh56f1_interfaces（6 自由度）
 │       ├── RH56H1/                    #    rh56h1_interfaces（6 自由度，触觉 version2 压阻式）
 │       ├── RH56DFX/                   #    rh56dfx_interfaces（Serial-CAN 灵巧手）
-│       └── EG5CD1/                    #    eg5cd1_interfaces（EG-5CD1 夹爪）
+│       ├── EG5CD1/                    #    eg5cd1_interfaces（EG-5CD1 夹爪）
+│       └── EG2_4C2/                   #    eg2_4c2_interfaces（EG2-4C2 Serial-CAN 夹爪）
 ├── docs/                              # 全部文档集中存放（架构/模块/依赖/协议规则/厂商手册）
 ├── scripts/                           # CI 辅助脚本（clang-format / clang-tidy 检查）
 ├── .github/workflows/                 # GitHub Actions CI 配置
@@ -56,14 +58,16 @@ serial_control/                        # = git 根 = colcon 工作区根
 
 | 包名 | 作用 |
 |------|------|
-| **inspire_control_ros2** | 节点与驱动逻辑：`inspire_control_node`、`RegisterController`、`RH5DG2InterfaceAdapter` / `RH56F1InterfaceAdapter` / **`RH56H1InterfaceAdapter`** / **`RH56DFXInterfaceAdapter`** / **`EG5CD1InterfaceAdapter`**，配置文件安装在 `share/inspire_control_ros2/config`。 |
+| **inspire_control_ros2** | 节点与驱动逻辑：`inspire_control_node`、`RegisterController`、**`RH524J1InterfaceAdapter`** / `RH5DG2InterfaceAdapter` / `RH56F1InterfaceAdapter` / **`RH56H1InterfaceAdapter`** / **`RH56DFXInterfaceAdapter`** / **`EG5CD1InterfaceAdapter`** / **`EG2_4C2InterfaceAdapter`**，配置文件安装在 `share/inspire_control_ros2/config`。 |
+| **rh524j1_interfaces** | RH524J1（065 腱绳手，24 自由度）专用 `msg`/`srv`，`joint_values` 长度 24，顺序为电缸 ID1～ID24。话题含角度/力/速度/电流；服务含设置角度力速度、读温度/故障码/状态/电流/力/角度等。 |
 | **rh5dg2_interfaces** | RH5DG2（13 自由度）专用 `msg`/`srv`，例如 `SetAngle1`、`GetAngleAct1`、`Setforce`、`Geterror` 等。 |
 | **rh56f1_interfaces** | RH56F1（6 自由度）专用 `msg`/`srv`。 |
 | **rh56h1_interfaces** | RH56H1（6 自由度）专用 `msg`/`srv`，与 `rh56f1_interfaces` 字段一致（寄存器/帧相同），但作为**独立接口包**与其他机械手架构对齐；触觉使用 version2（压阻式）的 `TouchData2`。 |
 | **rh56dfx_interfaces** | RH56DFX Serial-CAN 灵巧手专用 `msg`/`srv`，服务集与 RH5DG2/RH56F1 对齐（`Setangle`/`Setforce`/`Setspeed`/`Setid`/`Setbaudrate`/`Setclearerror`/`Setactionseqindex`/`Geterror`/`Getstatus`/`Gettemp` 等已支持；`Setmode`/`Setpause`/`Setstop`/`Setresetpara`/`Setgestureforceclb`/`Setactionlibraryindex` 在当前 CAN 协议中暂未定义，调用返回 `not_supported`；另含 DFX 特有 `Setsave`）。电流话题 `SetCurrent1`/`GetCurrentAct1` 已映射至 CAN 寄存器 `currentSet`（1020 `CURRENT_LIMIT`）与 `currentAct`（1594 `CURRENT`）；`touchAct` 在当前机型无触觉硬件，话题保留但不发布数据。 |
 | **eg5cd1_interfaces** | **因时 EG-5CD1** 电动夹爪 RS485：`GripperState`、`SetInt32`、`TriggerForHand`、`SetInt32Value`、`GetScalarForHand`；**组合服务** `ForceModeGrasp` / `ForceModeOpen` / `TouchModeGrasp` / `TouchModeOpen`（仅 `hand_id`+`speed`+`force`，内部按文档顺序经 `ioWriteSequence` 在设备 `DeviceWorker` 上**原子串行**写寄存器，见下）。 |
+| **eg2_4c2_interfaces** | **因时 EG2-4C2** 电动夹爪 Serial-CAN（USB-CAN 转串口模块，详见 `docs/4C2夹爪CAN转Serial通信规则.md`）：`GripperState`、`SetInt32`、`TriggerForHand`、`SetInt32Value`、`GetScalarForHand`；**组合服务** `ForceModeGrasp` / `ForceModeOpen`（4C2 手册只定义 `catchMode` 0/1 两档位置/力控，无触控模式，故不提供 `TouchModeGrasp/Open`）。与 `eg5cd1_interfaces` 服务签名一致，**架构上与其他机械手夹爪对齐**，可通过 `eg2_4c2_composite_service_prefix` 改前缀（默认 `/gripper`）。 |
 
-在 **`device_protocol_config.yaml`** 中设置 **`protocol.type`**（如 **`RH5DG2_485`**、**`RH56F1_485`**、**`RH56H1_485`** / **`RH56H1_canfd`**、**`RH56DFX_serial_can`**、**`EG5CD1_485`** 等），启动时自动推导 **`interfaces_profile`**（`RH5DG2` / `RH56F1` / **`RH56H1`** / **`RH56DFX`** / **`EG5CD1`**）并创建对应适配器。
+在 **`device_protocol_config.yaml`** 中设置 **`protocol.type`**（如 **`RH524J1_485`**、**`RH5DG2_485`**、**`RH56F1_485`**、**`RH56H1_485`** / **`RH56H1_canfd`**、**`RH56DFX_serial_can`**、**`EG5CD1_485`**、**`EG2_4C2_serial_can`** 等），启动时自动推导 **`interfaces_profile`**（**`RH524J1`** / `RH5DG2` / `RH56F1` / **`RH56H1`** / **`RH56DFX`** / **`EG5CD1`** / **`EG2_4C2`**）并创建对应适配器。
 
 **RH56H1** 与 **RH56F1** 寄存器与帧格式相同，支持 **485** 与 **CAN-FD** 两种 `protocol.type`；ROS 接口使用**独立包 `rh56h1_interfaces`**（字段与 `rh56f1_interfaces` 一致，架构上与其他机械手对齐，不再复用 F1 包）。二者唯一区别是**触觉传感器类型**：RH56F1 为 version1（电容式），RH56H1 为 **version2（压阻式）**。解码规则（有符号 int16、temp/errCode 取低字节、触觉 version2 布局与 float 合力等）已逐条与厂商参考 `RH56H1_SDK` 核对一致。
 
@@ -266,6 +270,383 @@ ros2 run inspire_control_ros2 inspire_control_node -- \
 
 编译时需与工作区内接口包一起构建（见 [编译项目](#3-编译项目)）。
 
+### EG2-4C2 夹爪全链路说明
+
+因时 EG2-4C2 电动夹爪通过 **USB-CAN 转串口模块** 与主机通信（详见 `docs/4C2夹爪CAN转Serial通信规则.md` 与 `gripper_demo_can_serial.py`），架构与 RH56DFX_serial_can（同样是 Serial-CAN 灵巧手）和 EG5CD1（同样是单自由度夹爪）对齐：
+
+- **协议实现**：`EG2_4C2_serial_can_Protocol`（`REGISTER_PROTOCOL("EG2_4C2_serial_can", …)`）。
+  - 串口封包 21 字节：`AA AA | ExtId(4B 小端) | Data[8] | Meta[4] | Checksum | 55 55`，与 RH56DFX_serial_can 完全一致。
+  - 29 位 ExtId 编码（手册第 4 章，与 demo `build_ext_id` 对齐）：
+    `ExtId = (op_type & 0x3) << 26 | (reg_addr & 0xFFF) << 14 | (hand_id & 0x3FFF)`，
+    `op_type`：00=读、01=写、02=定位、03=随动（实现只用读/写）。
+    寄存器地址用 **Modbus 地址**（USB-CAN 串口专用），与手册第五节左列一致。
+  - 写帧 Data[8] 不足部分用 `0xFF` 填充；写帧 Meta[0] **固定填 `0x08`**（与 `gripper_demo_can_serial.py:build_write_frame` 第 123 行行为一致：无论写 1/2/3/4 个寄存器，Meta[0] 均为 8）。
+  - 读帧 Meta[0] 固定填 `0x01`（与 demo `READ_META = (0x01, 0x00, 0x01, 0x00)` 对齐；手册此处描述与 demo 不一致，**以 demo 实际跑通行为为准**）。
+  - 校验和：`sum(ExtId..Meta) & 0xFF`（手册 §3.1 + demo 第 100 行一致）。
+  - 应答解析：固定偏移 `frame[6..14]` 为 CAN 数据区，`0xA5` 转义规则同 RH56DFX_serial_can。
+- **寄存器**（与 `gripper_demo_can_serial.py:REG` + 状态寄存器一致）：
+
+  | 名称 | Modbus 地址 | 用途 | 默认读取长度 |
+  |------|------------|------|-------------|
+  | `save` / `defaultPar` | 1001 / 1002 | 保存 / 恢复默认 | 2 |
+  | `id` / `baud` | 1003 / 1004 | 设备 ID / 波特率索引 | 2 |
+  | `catchMode` | 1005 | 0=一次夹取，1=持续夹取 | 2 |
+  | `stop` / `clearError` | 1006 / 1007 | 急停 / 清除故障 | 2 |
+  | `openLenSet` / `speedSet` / `forceSet` | 1010 / 1011 / 1012 | 开口度 / 速度 / 力度 | 2 |
+  | `maxOpenLen` / `minOpenLen` | 1016 / 1017 | 最大 / 最小开口 | 2 |
+  | `forceAct` / `openLenAct` / `currentAct` / `temp` | 1060 / 1061 / 1062 / 1063 | 状态（只读） | 2 |
+  | `errorCode` / `status` | 1064 / 1065 | 故障位 / 状态码（只读） | 2 |
+  | `gripperStatusBlock` | 1060 | 一次读 1060–1065 共 12 字节（`forceAct / openLenAct / currentAct / temp / errorCode / status`），跨 8+4 两帧 | 12 |
+
+- **示例配置**（随包安装到 `share/inspire_control_ros2/config`）：
+  - `device_protocol_eg2_4c2_example.yaml`：`protocol.type: EG2_4C2_serial_can`，串口默认 `/dev/ttyUSB0` @ 115200。
+  - `ros2_controller_eg2_4c2_example.yaml`：话题名与适配器约定一致——`gripper_state` / `open_len_set` / `speed_set` / `force_set` / `catch_mode_set`；服务含 `clear_error` / `save_params` / `restore_default` / `stop` / `set_id` / `set_baud_index` / `set_mode_service` / `set_max_open_len` / `set_min_open_len` / `get_error` / `get_temp` / `get_status`。
+  - **夹取/张开组合服务**（节点启动后自动创建，前缀由参数 `eg2_4c2_composite_service_prefix` 控制，默认 `/gripper`）：
+    - `{prefix}/force_mode_grasp`：夹取，内部写入持续夹取模式和目标开口度 `0`。
+      - `speed`：`10～1000`
+      - `force`：`100～1000`，必须填正数；数值越大，夹持力越大。
+    - `{prefix}/force_mode_open`：张开，内部写入一次夹取模式和目标开口度 `1000`。
+      - `speed`：`10～1000`
+      - `force`：`-1000～-100`，必须填负数。负号只是 ROS API 用来表示“张开方向”，驱动实际向设备写入其绝对值。
+    - `speedSet`、`forceSet` 单独写入只会修改参数，不会让夹爪运动；写入 `openLenSet` 才会触发运动。
+    - 重复发送相同目标时，如果夹爪已经完全张开或闭合，不会再次产生肉眼可见的运动。重复测试应按“张开 → 夹取 → 张开”的顺序进行。
+    - 服务返回 `accepted=true`、`message='openLenSet: ok'` 表示设备对寄存器写入作出了有效应答，不等于一定产生了位移；应同时查看 `/gripper/state` 中的 `open_len_act` 和 `status`。
+    - 整组寄存器写入经 `ioWriteSequence` 在同一设备 worker 上串行执行，不会与定时状态读取交错。
+  - **4C2 特有约束**：`catchMode` 只支持 0/1（无触控模式），故**不提供 `TouchModeGrasp/Open`**；当前机型无触觉硬件，`touchAct` 寄存器未实现，调用返回 `NotSupported`。
+- **启动示例**：
+
+```bash
+ros2 run inspire_control_ros2 inspire_control_node -- \
+  --device-config $(ros2 pkg prefix inspire_control_ros2)/share/inspire_control_ros2/config/device_protocol_eg2_4c2_example.yaml \
+  --controller-config $(ros2 pkg prefix inspire_control_ros2)/share/inspire_control_ros2/config/ros2_controller_eg2_4c2_example.yaml
+```
+
+#### EG2-4C2 夹爪运动自检
+
+当 `protocol.type: EG2_4C2_serial_can` 时，建议严格按照下面的顺序测试。先在一个终端持续查看状态：
+
+```bash
+source install/setup.bash
+
+ros2 topic echo /gripper/state eg2_4c2_interfaces/msg/GripperState
+```
+
+重点查看：
+
+- `open_len_act`：实际开口度，正常范围约为 `0～1000`；`0` 表示最小开口，`1000` 表示最大开口。
+- `status`：`1` 已完全张开、`2` 已完全闭合、`3` 已停止、`4` 正在夹取、`5` 正在张开、`6` 夹取物体后力控停止。
+- `error_code`：正常应为 `0`。
+
+在另一个终端执行运动测试：
+
+```bash
+source install/setup.bash
+
+# 1. 清除可能存在的故障
+ros2 service call /gripper/clear_error \
+  eg2_4c2_interfaces/srv/TriggerForHand \
+  "{hand_id: 1}"
+
+# 2. 张开：force 必须是 -1000～-100 的负数
+ros2 service call /gripper/force_mode_open \
+  eg2_4c2_interfaces/srv/ForceModeOpen \
+  "{hand_id: 1, speed: 600, force: -400}"
+
+# 3. 等夹爪完全张开后再夹取；force 必须是 100～1000 的正数
+ros2 service call /gripper/force_mode_grasp \
+  eg2_4c2_interfaces/srv/ForceModeGrasp \
+  "{hand_id: 1, speed: 600, force: 300}"
+
+# 4. 再次张开，确认能够往返运动
+ros2 service call /gripper/force_mode_open \
+  eg2_4c2_interfaces/srv/ForceModeOpen \
+  "{hand_id: 1, speed: 600, force: -400}"
+```
+
+以下张开命令是错误示例，因为 `force` 使用了正数，驱动会返回 `accepted=false`，不会向夹爪发送运动序列：
+
+```bash
+ros2 service call /gripper/force_mode_open \
+  eg2_4c2_interfaces/srv/ForceModeOpen \
+  "{hand_id: 1, speed: 600, force: 900}"
+```
+
+若正确命令返回 `accepted=true`，但夹爪没有肉眼可见的运动：
+
+1. 如果 `open_len_act` 已接近命令目标（张开约 `1000`、闭合约 `0`），说明夹爪已经到位，因此重复发送不会再次运动。
+2. 如果 `open_len_act` 没有变化，检查电源、CAN 侧 `500 Kbps`、串口 `/dev/ttyUSB0 @ 115200`、设备 ID 和故障码。
+3. 如果 `open_len_act` 超出 `0～1000` 或 `status` 长期为 `0`，说明状态数据异常，不能只凭 `accepted=true` 判断夹爪执行成功，应优先排查 USB-CAN 转串口模块的帧格式及 CAN 寄存器地址配置。
+
+📖 **[docs/4C2夹爪CAN转Serial通信规则.md](docs/4C2夹爪CAN转Serial通信规则.md)** 通信协议详细规则。
+
+### RH524J1 腱绳手全链路说明
+
+因时 RH524J1（065 腱绳驱动，24 自由度）走 **RS485**，帧格式与 RH5DG2 相同（请求 `EB 90`），寄存器地址来自 `065demo/hand_param.h`（`angleSet=320`，一次写 24 路）。
+
+- **协议**：`RH524J1_485_Protocol`（`REGISTER_PROTOCOL("RH524J1_485", …)`）
+- **接口包**：`rh524j1_interfaces`（`joint_values` 固定 24 个整数）
+- **示例配置**（随包安装到 `share/inspire_control_ros2/config`）：
+  - `device_protocol_rh524j1_example.yaml`：`protocol.type: RH524J1_485`
+  - `ros2_controller_rh524j1_example.yaml`：话题 `/hand_left/angle_set` 等，服务 `/hand_left/set_angle` 等
+- **无触觉**、无力控组合服务。当前机型无 `touchAct`。
+
+**启动**（改代码/配置后必须 **重新编译并重启节点**；正在跑的进程不会出现新服务）：
+
+```bash
+# 1) 在正在跑 launch 的终端按 Ctrl+C 停掉节点
+# 2) 编译并加载
+colcon build --packages-select inspire_control_ros2
+source install/setup.bash
+
+# 3) 用原来的命令重启即可（不必换 launch 文件）
+ros2 launch inspire_control_ros2 inspire_control_single_device.launch.py device_name:=hand_left
+```
+
+也可使用 RH524J1 专用 launch（内容与上面默认配置一致）：
+
+```bash
+ros2 launch inspire_control_ros2 inspire_control_rh524j1.launch.py device_name:=hand_left
+```
+
+请先只编译本机型相关包，避免工作区里其它 ROS1 包拖垮构建：
+
+```bash
+colcon build --packages-select rh524j1_interfaces inspire_serial_core inspire_control_ros2
+source install/setup.bash
+```
+
+> **`get_currentAct` 一直 `waiting for service`**：节点还是旧进程。先 `Ctrl+C`，再执行上面的 launch。重启后 `ros2 service list | grep get_currentAct` 应能看到服务。不等重启时，电流可用话题：`ros2 topic echo /hand_left/current_actual`。
+
+#### `joint_values` 按下标 = 电缸 ID − 1
+
+数组一共 24 个数，**第几个位置就对应几号电缸**：下标 `0` = 电缸 ID1，下标 `23` = 电缸 ID24。不要按手指重新排。
+
+规则：
+
+- **弯曲关节（除 ID1 外）：`0` = 张开，数值越大越弯曲。**
+- **小指翻折（ID1 / 下标 0）实机范围 `-150 ~ 0`：`0` = 张开，`-150` = 尽量弯曲（负数方向）。**
+- **不想动的关节填 `-1`**（保持当前角度）。**不要填 `0`**：`0` 会把该路拉回张开/零位。
+- **只改 1 个关节时**：仅 1 路填角度、其余全 `-1`，SDK 会发**短帧**（与实机 `EB 90 … 05 12 40 01 …` 单路写相同）；多路同时改才发整包 24 路。
+- 实机拇指指尖（ID20）和掌指（ID22）接线对调，协议已自动交换。你只要按表填写：下标 19 = 指尖、下标 21 = 掌指。
+
+| 电缸 ID | 下标 | 关节名 | 部位 | 角度范围 |
+|---------|------|--------|------|----------|
+| 1 | 0 | `pinky_fold` | 小指翻折 | **-150 ~ 0**（0 张开，-150 弯曲） |
+| 2 | 1 | `pinky_side` | 小指侧摆 | **-200 ~ 200** |
+| 3 | 2 | `ring_side` | 无名指侧摆 | **-200 ~ 200** |
+| 4 | 3 | `middle_side` | 中指侧摆 | **-200 ~ 200** |
+| 5 | 4 | `index_side` | 食指侧摆 | **-200 ~ 200** |
+| 6 | 5 | `pinky_mcp` | 小指掌指 | 0 ~ 900 |
+| 7 | 6 | `ring_mcp` | 无名指掌指 | 0 ~ 900 |
+| 8 | 7 | `middle_mcp` | 中指掌指 | 0 ~ 900 |
+| 9 | 8 | `index_mcp` | 食指掌指 | 0 ~ 900 |
+| 10 | 9 | `pinky_pip` | 小指指中 | 0 ~ 900 |
+| 11 | 10 | `ring_pip` | 无名指指中 | 0 ~ 900 |
+| 12 | 11 | `middle_pip` | 中指指中 | 0 ~ 900 |
+| 13 | 12 | `index_pip` | 食指指中 | 0 ~ 900 |
+| 14 | 13 | `pinky_dip` | 小指指尖 | 0 ~ 900 |
+| 15 | 14 | `ring_dip` | 无名指指尖 | 0 ~ 900 |
+| 16 | 15 | `middle_dip` | 中指指尖 | 0 ~ 900 |
+| 17 | 16 | `index_dip` | 食指指尖 | 0 ~ 900 |
+| 18 | 17 | `thumb_rot` | 拇指旋转 | 0 ~ 1000 |
+| 19 | 18 | `thumb_side` | 拇指侧摆 | 0 ~ 1000 |
+| 20 | 19 | `thumb_dip` | 拇指指尖 | 0 ~ 900 |
+| 21 | 20 | `thumb_pip` | 拇指指中 | 0 ~ 900 |
+| 22 | 21 | `thumb_mcp` | 拇指掌指 | 0 ~ 900 |
+| 23 | 22 | `wrist_1` | 手腕 1 | 0 ~ 1000 |
+| 24 | 23 | `wrist_2` | 手腕 2 | 0 ~ 1000 |
+
+示例：小指掌指（ID6）700、中指掌指（ID8）800、食指指中（ID13）900、食指指尖（ID17）900、拇指掌指（ID22）600，其余张开：
+
+```bash
+ros2 service call /hand_left/set_angle rh524j1_interfaces/srv/Setangle \
+  "{command: '', hand_id: 1, joint_values: [0,0,0,0,0,700,0,800,0,0,0,0,900,0,0,0,900,0,0,0,0,0,600,0]}"
+```
+
+只动拇指旋转（ID18 / 下标 17），其它关节保持不动：
+
+```bash
+ros2 service call /hand_left/set_angle rh524j1_interfaces/srv/Setangle \
+  "{command: '', hand_id: 1, joint_values: [-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,400,-1,-1,-1,-1,-1,-1]}"
+```
+
+`hand_id` 必须和配置文件里的 `Hand_ID` 一致，否则话题会被忽略、服务会返回 `accepted: false`。下面所有命令都假定 `Hand_ID: 1`。24 路数组一律 **下标 = 电缸 ID − 1**。
+
+#### 话题一览
+
+节点按 `update_rate`（示例 50 Hz）循环读状态并发布。速度只有写入话题，没有实际速度反馈话题。
+
+| 用途 | 写入话题 | 消息类型 | 读取话题 | 消息类型 | 寄存器 |
+|------|----------|----------|----------|----------|--------|
+| 角度 | `/hand_left/angle_set` | `SetAngle1` | `/hand_left/angle_actual` | `GetAngleAct1` | `angleSet` / `angleAct` |
+| 力 | `/hand_left/force_set` | `SetForce1` | `/hand_left/force_actual` | `GetForceAct1` | `forceSet` / `forceAct` |
+| 速度 | `/hand_left/speed_set` | `SetSpeed1` | （无） | — | `speedSet` |
+| 电流 | `/hand_left/current_set` | `SetCurrent1` | `/hand_left/current_actual` | `GetCurrentAct1` | `currentSet` / `currentAct` |
+
+无触觉话题（当前机型无 `touchAct`）。**日常位置控制只需「速度 + 角度」**；力接口见下节，可忽略。
+
+> **角度 vs 速度单位**：`angleSet`/`angleAct` 单位为 **0.1°**（如 900=90°）。`speedSet` 为控制器内部 **标量档位**，**无 m/s、°/s 等物理单位**；065 实机满速刻度 **16384**（2¹⁴），0=最慢、16384=满速。下文示例取 **8192（约半速）**。
+
+#### 角度话题与服务
+
+弯曲关节 **`0` = 张开**，数值越大越弯曲；**`-1` = 该路保持当前角度**（仅 `angleSet` 支持）。先设速度再设角度更不容易“看起来没动”。
+
+```bash
+# --- 话题：写角度 / 读实际角度 ---
+ros2 topic pub --once /hand_left/angle_set rh524j1_interfaces/msg/SetAngle1 \
+  "{hand_id: 1, joint_values: [0,0,0,0,0,700,0,800,0,0,0,0,900,0,0,0,900,0,0,0,0,0,600,600]}"
+
+ros2 topic echo /hand_left/angle_actual
+
+# --- 服务：写角度 / 读实际角度 ---
+ros2 service call /hand_left/set_angle rh524j1_interfaces/srv/Setangle \
+  "{command: '', hand_id: 1, joint_values: [0,0,0,0,0,700,0,800,0,0,0,0,900,0,0,0,900,0,0,0,0,0,600,600]}"
+
+ros2 service call /hand_left/get_angleAct rh524j1_interfaces/srv/Getangleact \
+  "{query: '', hand_id: 1}"
+```
+
+成功时服务返回 `accepted: true`、`message: ok`（读服务看 `message: ok` 和 24 路 `joint_values`）。
+
+#### 力话题与服务（可选）
+
+本机型**无独立力/触觉传感器**；`forceSet`/`forceAct` 为 24 路电缸内部张力估算，**不做力控时可不发**。若使用：demo 只按 16 位截断，**SDK 不做量程裁剪**；不想改的路可填 `0` 或与当前值相同。
+
+```bash
+ros2 topic pub --once /hand_left/force_set rh524j1_interfaces/msg/SetForce1 \
+  "{hand_id: 1, joint_values: [500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500]}"
+
+ros2 topic echo /hand_left/force_actual
+
+ros2 service call /hand_left/set_force rh524j1_interfaces/srv/Setforce \
+  "{command: '', hand_id: 1, joint_values: [500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500]}"
+
+ros2 service call /hand_left/get_forceAct rh524j1_interfaces/srv/Getforceact \
+  "{query: '', hand_id: 1}"
+```
+
+#### 速度话题与服务
+
+`speedSet` 为 24 路速度标量（**0~16384**，16384=满速）。运动前建议先设速度，再设角度。示例取 **8192（半速）**；更慢可试 4096，更快可试 12288（勿一次拉满）。没有 `speedAct` 反馈话题。
+
+```bash
+ros2 topic pub --once /hand_left/speed_set rh524j1_interfaces/msg/SetSpeed1 \
+  "{hand_id: 1, joint_values: [8192,8192,8192,8192,8192,8192,8192,8192,8192,8192,8192,8192,8192,8192,8192,8192,8192,8192,8192,8192,8192,8192,8192,8192]}"
+
+ros2 service call /hand_left/set_speed rh524j1_interfaces/srv/Setspeed \
+  "{command: '', hand_id: 1, joint_values: [8192,8192,8192,8192,8192,8192,8192,8192,8192,8192,8192,8192,8192,8192,8192,8192,8192,8192,8192,8192,8192,8192,8192,8192]}"
+```
+
+#### 电流话题与服务
+
+`currentSet` 是 24 路电流保护上限，`currentAct` 是实际电流。写电流保护**不会让手运动**，只改保护值。
+
+**读电流有两种方式**（效果相同，下标 = 电缸 ID − 1）：
+
+```bash
+# 方式 1：话题（节点起来就能用，推荐）
+ros2 topic echo /hand_left/current_actual
+
+# 方式 2：服务（需用新版配置重启节点后才有）
+ros2 service call /hand_left/get_currentAct rh524j1_interfaces/srv/Getcurrentact \
+  "{query: '', hand_id: 1}"
+```
+
+写电流保护上限：
+
+```bash
+ros2 topic pub --once /hand_left/current_set rh524j1_interfaces/msg/SetCurrent1 \
+  "{hand_id: 1, joint_values: [800,800,800,800,800,800,800,800,800,800,800,800,800,800,800,800,800,800,800,800,800,800,800,800]}"
+```
+
+#### 温度、故障码、状态（只读服务）
+
+这三项都是 **24 路**，每个电缸一个数，顺序同样是下标 = 电缸 ID − 1。`0` 通常表示正常/无故障。
+
+```bash
+# 温度（℃，只读）
+ros2 service call /hand_left/get_temp rh524j1_interfaces/srv/Gettemp \
+  "{query: '', hand_id: 1}"
+
+# 故障码（只读；非 0 表示该电缸有故障）
+ros2 service call /hand_left/get_errorCode rh524j1_interfaces/srv/Geterror \
+  "{query: '', hand_id: 1}"
+
+# 运行状态（只读）
+ros2 service call /hand_left/get_status rh524j1_interfaces/srv/Getstatus \
+  "{query: '', hand_id: 1}"
+```
+
+有故障时先清错再继续运动：
+
+```bash
+ros2 service call /hand_left/set_clearError rh524j1_interfaces/srv/Setclearerror \
+  "{hand_id: 1, clear_code: 1}"
+```
+
+#### 系统管理服务
+
+| 服务 | 含义 | 命令示例 |
+|------|------|---------|
+| `set_id` | 改设备通信 ID（改完后 yaml 的 `Hand_ID` 也要改） | `ros2 service call /hand_left/set_id rh524j1_interfaces/srv/Setid "{hand_id: 1, device_id: 1}"` |
+| `set_baudRate` | 改设备波特率索引（改完后 yaml 的 `baudrate` 也要改，常见串口 115200） | `ros2 service call /hand_left/set_baudRate rh524j1_interfaces/srv/Setbaudrate "{hand_id: 1, baudrate: 0}"` |
+| `set_clearError` | 写 1 清除故障 | `ros2 service call /hand_left/set_clearError rh524j1_interfaces/srv/Setclearerror "{hand_id: 1, clear_code: 1}"` |
+| `set_resetPara` | 写 1 恢复出厂参数 | `ros2 service call /hand_left/set_resetPara rh524j1_interfaces/srv/Setresetpara "{hand_id: 1, confirm: 1}"` |
+| `set_defaultSpeed` | 上电默认速度（24 路，标量 0~16384） | `ros2 service call /hand_left/set_defaultSpeed rh524j1_interfaces/srv/Setdefaultspeed "{hand_id: 1, joint_values: [8192,8192,8192,8192,8192,8192,8192,8192,8192,8192,8192,8192,8192,8192,8192,8192,8192,8192,8192,8192,8192,8192,8192,8192]}"` |
+| `set_defaultForceSet` | 上电默认力（24 路） | `ros2 service call /hand_left/set_defaultForceSet rh524j1_interfaces/srv/Setdefaultforceset "{hand_id: 1, joint_values: [500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500]}"` |
+| `set_mode` | 24 路电缸运行模式 | `ros2 service call /hand_left/set_mode rh524j1_interfaces/srv/Setmode "{command: '', hand_id: 1, joint_values: [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]}"` |
+| `set_pause` | 写 1 暂停，写 0 继续 | `ros2 service call /hand_left/set_pause rh524j1_interfaces/srv/Setpause "{hand_id: 1, pause_flag: 1}"` |
+| `set_stop` | 写 1 急停 | `ros2 service call /hand_left/set_stop rh524j1_interfaces/srv/Setstop "{hand_id: 1, stop_flag: 1}"` |
+| `set_gestureForceClb` | 力校准 | `ros2 service call /hand_left/set_gestureForceClb rh524j1_interfaces/srv/Setgestureforceclb "{hand_id: 1, calibration_values: [1]}"` |
+| `get_errorCode` | 读 24 路故障码 | `ros2 service call /hand_left/get_errorCode rh524j1_interfaces/srv/Geterror "{query: '', hand_id: 1}"` |
+| `get_status` | 读 24 路状态 | `ros2 service call /hand_left/get_status rh524j1_interfaces/srv/Getstatus "{query: '', hand_id: 1}"` |
+| `get_temp` | 读 24 路温度 | `ros2 service call /hand_left/get_temp rh524j1_interfaces/srv/Gettemp "{query: '', hand_id: 1}"` |
+| `get_currentAct` | 读 24 路实际电流 | `ros2 service call /hand_left/get_currentAct rh524j1_interfaces/srv/Getcurrentact "{query: '', hand_id: 1}"` |
+| `get_forceAct` | 读 24 路实际力 | `ros2 service call /hand_left/get_forceAct rh524j1_interfaces/srv/Getforceact "{query: '', hand_id: 1}"` |
+| `get_angleAct` | 读 24 路实际角度 | `ros2 service call /hand_left/get_angleAct rh524j1_interfaces/srv/Getangleact "{query: '', hand_id: 1}"` |
+
+> **协议有、当前 ROS 未暴露**：保存 Flash（`save`）、电缸位置 `posSet`/`posAct`（不建议用来设角度）、`speedAct`、手势号 `Setgestureno` 等。无触觉、无动作序列/动作库、无百分比接口。
+
+#### RH524J1 话题/服务自检
+
+改配置或重新编译后，**先重启节点**，再另开终端：
+
+```bash
+source install/setup.bash
+
+# 确认节点和服务已起来
+ros2 node list
+ros2 topic list
+ros2 service list | grep hand_left
+
+# 只读：温度 / 故障码 / 状态 / 电流 / 力 / 角度
+ros2 service call /hand_left/get_temp rh524j1_interfaces/srv/Gettemp "{query: '', hand_id: 1}"
+ros2 service call /hand_left/get_errorCode rh524j1_interfaces/srv/Geterror "{query: '', hand_id: 1}"
+ros2 service call /hand_left/get_status rh524j1_interfaces/srv/Getstatus "{query: '', hand_id: 1}"
+ros2 service call /hand_left/get_currentAct rh524j1_interfaces/srv/Getcurrentact "{query: '', hand_id: 1}"
+ros2 service call /hand_left/get_forceAct rh524j1_interfaces/srv/Getforceact "{query: '', hand_id: 1}"
+ros2 service call /hand_left/get_angleAct rh524j1_interfaces/srv/Getangleact "{query: '', hand_id: 1}"
+
+# 话题：先看实际值，再发一条速度 + 角度
+ros2 topic echo /hand_left/angle_actual
+ros2 topic echo /hand_left/current_actual
+ros2 topic echo /hand_left/force_actual
+
+ros2 topic pub --once /hand_left/speed_set rh524j1_interfaces/msg/SetSpeed1 \
+  "{hand_id: 1, joint_values: [8192,8192,8192,8192,8192,8192,8192,8192,8192,8192,8192,8192,8192,8192,8192,8192,8192,8192,8192,8192,8192,8192,8192,8192]}"
+
+ros2 topic pub --once /hand_left/angle_set rh524j1_interfaces/msg/SetAngle1 \
+  "{hand_id: 1, joint_values: [-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,400,-1,-1,-1,-1,-1,-1]}"
+```
+
+判定：
+
+- **服务正常**：有 `response:`，且 `message: ok`。
+- **通信异常**：有 `response:` 但 `message` 不是 `ok`（ROS 通了，串口/设备没应答好）。
+- **服务未就绪**：一直 `waiting for service` → 节点未启动，或未用 RH524J1 配置重启。执行 `ros2 service list | grep get_currentAct`；若没有，请 `Ctrl+C` 停节点后运行 `ros2 launch inspire_control_ros2 inspire_control_rh524j1.launch.py`。
+- **话题正常**：发 `angle_set` 后，`angle_actual` 对应电缸会变化。
+- **话题没反应**：检查 `hand_id` 是否等于 yaml 的 `Hand_ID`；其它关节不要填 `0`（会拉回张开），应填 `-1`。
+
 ## 快速开始
 
 > **💡 快速安装**：推荐使用自动化安装脚本一键安装所有依赖
@@ -431,7 +812,7 @@ dmesg | grep ttyUSB
 - `python3-colcon-common-extensions` - Colcon构建工具扩展
 - `python3-rosdep` - ROS依赖管理工具（可选）
 
-**本仓库 ROS2 工作区包（源码编译，非 apt）**：`rh5dg2_interfaces`、`rh56f1_interfaces`、`rh56h1_interfaces`、`rh56dfx_interfaces`、`eg5cd1_interfaces`、`inspire_control_ros2`，详见上文「ROS2 接口说明」与 `docs/依赖清单.md`。
+**本仓库 ROS2 工作区包（源码编译，非 apt）**：`rh5dg2_interfaces`、`rh56f1_interfaces`、`rh56h1_interfaces`、`rh56dfx_interfaces`、`eg5cd1_interfaces`、`eg2_4c2_interfaces`、`inspire_control_ros2`，详见上文「ROS2 接口说明」与 `docs/依赖清单.md`。
 
 **第三方库依赖**：
 - `libboost-system-dev` - Boost系统库（包含Boost.Asio）
@@ -616,7 +997,7 @@ echo "1800,1800,1800,1800,1350,1800" > /tmp/hand_pose.txt
 
 #### 运行单元测试
 
-核心库自带 gtest 单元测试，覆盖：`RingBuffer` 环形缓冲、`DeviceWorker` 串口事务串行化（FIFO 执行、异常传播、并发提交无重叠、关停语义），以及 RH56F1 / RH5DG2 / EG5CD1 三个 485 协议的命令构建、响应解析、校验和等**纯逻辑**。全部用例不依赖真实串口硬件，测试源码位于 `src/inspire_serial_core/tests/`。
+核心库自带 gtest 单元测试，覆盖：`RingBuffer` 环形缓冲、`DeviceWorker` 串口事务串行化（FIFO 执行、异常传播、并发提交无重叠、关停语义），以及 RH56F1 / RH5DG2 / RH524J1 / EG5CD1 等 485 协议 + RH56DFX_serial_can / EG2_4C2_serial_can 两个 Serial-CAN 协议的命令构建、响应解析、校验和、A5 转义、ExtId 编码等**纯逻辑**。全部用例不依赖真实串口硬件，测试源码位于 `src/inspire_serial_core/tests/`。
 
 - **colcon 工作区方式**（推荐）：
 
@@ -724,6 +1105,48 @@ ros2 service call /hand_left/set_id rh5dg2_interfaces/srv/Setid \
   "{hand_id: 1, device_id: 1}"
 ```
 
+#### RH5DG2 角度循环测试脚本
+
+`test/` 目录提供两个 Python 脚本，用于在真机上做 min→max→min 三角波角度循环联调。**默认测试全部 13 个关节**（`--joints all --mode sync`）：
+
+```bash
+source install/setup.bash
+
+# 话题模式：13 关节同步循环
+python3 test/test_rh5dg2_angle_topic.py --device hand_left --hand-id 1
+
+# 服务模式：13 关节同步循环
+python3 test/test_rh5dg2_angle_service.py --device hand_left --hand-id 1
+
+# 逐关节依次测试（每次只动一个关节，其余保持固定姿态）
+python3 test/test_rh5dg2_angle_topic.py --mode sequential
+python3 test/test_rh5dg2_angle_service.py --mode sequential
+
+# 只测部分关节（例如前四指）
+python3 test/test_rh5dg2_angle_topic.py --joints 0,1,2,3
+```
+
+常用参数：`--mode sync|sequential`、`--joints all|0,1,...`、`--step` 步进、`--min`/`--max` 循环范围（默认 965~1800）、`--rate` 发布频率、`--fixed-angles` sequential 模式下非活动关节固定姿态。
+
+脚本可拷贝到任意目录运行，任选一种方式加载环境即可：
+
+```bash
+# 方式 1：source 工作区（推荐）
+source /opt/ros/jazzy/setup.bash
+source /path/to/Inspire_Hand_SDK-master/install/setup.bash
+python3 /任意路径/test_rh5dg2_angle_topic.py
+
+# 方式 2：环境变量指定 install 目录
+export INSPIRE_HAND_SDK_INSTALL=/path/to/Inspire_Hand_SDK-master/install
+python3 /任意路径/test_rh5dg2_angle_topic.py
+```
+
+启动节点示例：
+
+```bash
+ros2 launch inspire_control_ros2 inspire_control_single_device.launch.py device_name:=hand_left
+```
+
 #### RH56DFX 服务/Topic 收发自检
 
 当 `protocol.type: RH56DFX_serial_can` 时，可用以下步骤快速确认「服务是否可调用」「Topic 是否正常收发」：
@@ -798,7 +1221,7 @@ ros2 topic pub --once /hand_left/angle_set rh56dfx_interfaces/msg/SetAngle1 \
 
 ### 协议格式说明
 
-📖 **[docs/RH56F1_485协议格式说明.md](docs/RH56F1_485协议格式说明.md)**（另见 `docs/RH5DG2_485协议格式说明.md`、`docs/RH56DFX_Serial_CAN协议解析.md`、`docs/夹爪485寄存器规则.md`、`docs/EG5CD1协议格式说明.md`、`docs/EG5CD1_ROS2_API.md`）
+📖 **[docs/RH56F1_485协议格式说明.md](docs/RH56F1_485协议格式说明.md)**（另见 `docs/RH5DG2_485协议格式说明.md`、`docs/RH56DFX_Serial_CAN协议解析.md`、`docs/夹爪485寄存器规则.md`、`docs/EG5CD1协议格式说明.md`、`docs/EG5CD1_ROS2_API.md`、`docs/4C2夹爪CAN转Serial通信规则.md`）
 
 包含：
 - 读写请求格式

@@ -9,6 +9,12 @@ add_executable(inspire_serial_core_tests
     test_rh5dg2_485_protocol.cpp
     test_rh56dfx_serial_can_protocol.cpp
     test_eg5cd1_485_protocol.cpp
+    test_eg2_4c2_serial_can_protocol.cpp
+    test_rh524j1_485_protocol.cpp
+)
+
+target_include_directories(inspire_serial_core_tests PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
 target_link_libraries(inspire_serial_core_tests PRIVATE

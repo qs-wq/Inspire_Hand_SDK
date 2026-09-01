@@ -1,6 +1,8 @@
-# RH56H1 ROS2 控制器默认配置（launch 默认加载本文件）
-# 与 ros2_controller_rh56h1_example.yaml 内容一致；触觉为 version2（压阻式），touch_control.touch_version=2。
-# 使用方式：--controller-config 可省略（默认即本文件），或显式指向 ros2_controller_rh56h1_example.yaml
+# RH524J1（065 腱绳驱动 24 自由度）ROS2 控制器示例
+# 使用方式：--controller-config 指向本文件，--device-config 指向 device_protocol_rh524j1_example.yaml
+# 话题名须与 RH524J1InterfaceAdapter 约定一致：angle_control / force_control / speed_control / current_control
+# 服务含 set_angle/set_force/set_speed，以及 get_temp / get_errorCode / get_status / get_currentAct / get_forceAct / get_angleAct
+# 无触觉话题（当前机型无 touchAct）
 
 device_nodes:
   - device: hand_left
@@ -9,13 +11,32 @@ device_nodes:
     publish_header:
       frame_id: "hand_left"
 
+    # 按下标 = 电缸 ID−1 排列（ID1→下标0 … ID24→下标23）；仅拇指指尖/掌指在协议层对调
     joint_names:
-      - "hand_left/joint_0"
-      - "hand_left/joint_1"
-      - "hand_left/joint_2"
-      - "hand_left/joint_3"
-      - "hand_left/joint_4"
-      - "hand_left/joint_5"
+      - "pinky_fold"      # ID1  下标0   小指翻折   -150~0（0张开 -150弯曲）
+      - "pinky_side"      # ID2  下标1   小指侧摆   -200~200
+      - "ring_side"       # ID3  下标2   无名指侧摆 -200~200
+      - "middle_side"     # ID4  下标3   中指侧摆   -200~200
+      - "index_side"      # ID5  下标4   食指侧摆   -200~200
+      - "pinky_mcp"       # ID6  下标5   小指掌指   0~900
+      - "ring_mcp"        # ID7  下标6   无名指掌指 0~900
+      - "middle_mcp"      # ID8  下标7   中指掌指   0~900
+      - "index_mcp"       # ID9  下标8   食指掌指   0~900
+      - "pinky_pip"       # ID10 下标9   小指指中   0~900
+      - "ring_pip"        # ID11 下标10  无名指指中 0~900
+      - "middle_pip"      # ID12 下标11  中指指中   0~900
+      - "index_pip"       # ID13 下标12  食指指中   0~900
+      - "pinky_dip"       # ID14 下标13  小指指尖   0~900
+      - "ring_dip"        # ID15 下标14  无名指指尖 0~900
+      - "middle_dip"      # ID16 下标15  中指指尖   0~900
+      - "index_dip"       # ID17 下标16  食指指尖   0~900
+      - "thumb_rot"       # ID18 下标17  拇指旋转   0~1000
+      - "thumb_side"      # ID19 下标18  拇指侧摆   0~1000
+      - "thumb_dip"       # ID20 下标19  拇指指尖（与 ID22 对调）
+      - "thumb_pip"       # ID21 下标20  拇指指中   0~900
+      - "thumb_mcp"       # ID22 下标21  拇指掌指（与 ID20 对调）
+      - "wrist_1"         # ID23 下标22  手腕1      0~1000
+      - "wrist_2"         # ID24 下标23  手腕2      0~1000
 
     topics:
       - name: angle_control
@@ -32,58 +53,17 @@ device_nodes:
         command_topic: "/hand_left/force_set"
         state_topic: "/hand_left/force_actual"
 
-      # 速度控制话题
       - name: speed_control
         registers:
           write: ["speedSet"]
         command_topic: "/hand_left/speed_set"
 
-      # 电流控制话题
       - name: current_control
         registers:
           write: ["currentSet"]
           read: ["currentAct"]
         command_topic: "/hand_left/current_set"
         state_topic: "/hand_left/current_actual"
-
-      # 触觉数据话题（RH56H1 为 version2 压阻式）
-      - name: touch_control
-        registers:
-          read: ["touchAct"]
-        state_topic: "/hand_left/touch_data"
-        touch_version: 2          # 触觉数据版本号（电容式：1，压阻式：2）；RH56H1 为 2
-
-      # ===== 百分比接口（0.0~100.0，按手册量程自动换算，超范围自动裁剪）=====
-      # 位置百分比：基于角度 angleSet/angleAct（手册 2.5.10 推荐；勿用电缸位置 posSet 0-2000）。
-      # 逐关节换算，0%=握紧(最小角度)、100%=张开(最大角度)：
-      #   四指(0-3): 0%->1690, 50%->1280, 100%->870
-      #   拇指弯曲(4): 0%->1350, 50%->1150, 100%->950
-      #   拇指旋转(5): 0%->1700, 50%->1200, 100%->700
-      # 100% 等价于: angle_set [870,870,870,870,950,700]
-      - name: pos_percent_control
-        registers:
-          write: ["angleSet"]
-          read: ["angleAct"]
-        command_topic: "/hand_left/pos_percent_set"      # rh56h1_interfaces/msg/SetPercent1
-        state_topic: "/hand_left/pos_percent_actual"     # rh56h1_interfaces/msg/GetPercentAct1
-
-      # 速度百分比：写 speedSet(0-3000)
-      - name: speed_percent_control
-        registers:
-          write: ["speedSet"]
-        command_topic: "/hand_left/speed_percent_set"    # rh56h1_interfaces/msg/SetPercent1
-
-      # 力百分比：写 forceSet(0-900)
-      - name: force_percent_control
-        registers:
-          write: ["forceSet"]
-        command_topic: "/hand_left/force_percent_set"    # rh56h1_interfaces/msg/SetPercent1
-
-      # 电流百分比：写 currentSet(0-1500)
-      - name: current_percent_control
-        registers:
-          write: ["currentSet"]
-        command_topic: "/hand_left/current_percent_set"  # rh56h1_interfaces/msg/SetPercent1
 
     services:
       - register_name: "angleSet"
@@ -98,14 +78,6 @@ device_nodes:
         set_service_name: "/hand_left/set_speed"
         is_write_register: true
 
-      - register_name: "defaultSpeedSet"
-        set_service_name: "/hand_left/set_defaultSpeed"
-        is_write_register: true
-
-      - register_name: "defaultForceSet"
-        set_service_name: "/hand_left/set_defaultForceSet"
-        is_write_register: true
-
       - register_name: "id"
         set_service_name: "/hand_left/set_id"
         is_write_register: true
@@ -118,20 +90,20 @@ device_nodes:
         set_service_name: "/hand_left/set_clearError"
         is_write_register: true
 
-      - register_name: "save"
-        set_service_name: "/hand_left/set_save"
-        is_write_register: true
-
-      - register_name: "actionSeqIndex"
-        set_service_name: "/hand_left/set_actionSeqIndex"
-        is_write_register: true
-
       - register_name: "resetPara"
         set_service_name: "/hand_left/set_resetPara"
         is_write_register: true
 
       - register_name: "gestureForceClb"
         set_service_name: "/hand_left/set_gestureForceClb"
+        is_write_register: true
+
+      - register_name: "defaultSpeedSet"
+        set_service_name: "/hand_left/set_defaultSpeed"
+        is_write_register: true
+
+      - register_name: "defaultForceSet"
+        set_service_name: "/hand_left/set_defaultForceSet"
         is_write_register: true
 
       - register_name: "mode"
@@ -146,28 +118,6 @@ device_nodes:
         set_service_name: "/hand_left/set_stop"
         is_write_register: true
 
-      # ===== 百分比接口服务（0.0~100.0，按手册量程自动换算，超范围自动裁剪）=====
-      # register_name 使用 xxxPercent 约定键，适配器内部换算后写入/读取对应原寄存器
-      - register_name: "posSetPercent"        # -> 写 angleSet（各指角度范围，0%=握紧/100%=张开）
-        set_service_name: "/hand_left/set_pos_percent"       # rh56h1_interfaces/srv/Setpercent
-        is_write_register: true
-
-      - register_name: "speedSetPercent"      # -> 写 speedSet(0-3000)
-        set_service_name: "/hand_left/set_speed_percent"     # rh56h1_interfaces/srv/Setpercent
-        is_write_register: true
-
-      - register_name: "forceSetPercent"      # -> 写 forceSet(0-900)
-        set_service_name: "/hand_left/set_force_percent"     # rh56h1_interfaces/srv/Setpercent
-        is_write_register: true
-
-      - register_name: "currentSetPercent"    # -> 写 currentSet(0-1500)
-        set_service_name: "/hand_left/set_current_percent"   # rh56h1_interfaces/srv/Setpercent
-        is_write_register: true
-
-      - register_name: "posActPercent"        # -> 读 angleAct（各指角度范围，0%=握紧/100%=张开）
-        get_service_name: "/hand_left/get_pos_percent"       # rh56h1_interfaces/srv/Getpercent
-        is_write_register: false
-
       - register_name: "errorCode"
         get_service_name: "/hand_left/get_errorCode"
         is_write_register: false
@@ -178,4 +128,16 @@ device_nodes:
 
       - register_name: "temp"
         get_service_name: "/hand_left/get_temp"
+        is_write_register: false
+
+      - register_name: "currentAct"
+        get_service_name: "/hand_left/get_currentAct"
+        is_write_register: false
+
+      - register_name: "forceAct"
+        get_service_name: "/hand_left/get_forceAct"
+        is_write_register: false
+
+      - register_name: "angleAct"
+        get_service_name: "/hand_left/get_angleAct"
         is_write_register: false

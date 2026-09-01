@@ -1,0 +1,143 @@
+# RH524J1（065 腱绳驱动 24 自由度）ROS2 控制器示例
+# 使用方式：--controller-config 指向本文件，--device-config 指向 device_protocol_rh524j1_example.yaml
+# 话题名须与 RH524J1InterfaceAdapter 约定一致：angle_control / force_control / speed_control / current_control
+# 服务含 set_angle/set_force/set_speed，以及 get_temp / get_errorCode / get_status / get_currentAct / get_forceAct / get_angleAct
+# 无触觉话题（当前机型无 touchAct）
+
+device_nodes:
+  - device: hand_left
+    update_rate: 50
+
+    publish_header:
+      frame_id: "hand_left"
+
+    # 按下标 = 电缸 ID−1 排列（ID1→下标0 … ID24→下标23）；仅拇指指尖/掌指在协议层对调
+    joint_names:
+      - "pinky_fold"      # ID1  下标0   小指翻折   0~900
+      - "pinky_side"      # ID2  下标1   小指侧摆   -200~200
+      - "ring_side"       # ID3  下标2   无名指侧摆 -200~200
+      - "middle_side"     # ID4  下标3   中指侧摆   -200~200
+      - "index_side"      # ID5  下标4   食指侧摆   -200~200
+      - "pinky_mcp"       # ID6  下标5   小指掌指   0~900
+      - "ring_mcp"        # ID7  下标6   无名指掌指 0~900
+      - "middle_mcp"      # ID8  下标7   中指掌指   0~900
+      - "index_mcp"       # ID9  下标8   食指掌指   0~900
+      - "pinky_pip"       # ID10 下标9   小指指中   0~900
+      - "ring_pip"        # ID11 下标10  无名指指中 0~900
+      - "middle_pip"      # ID12 下标11  中指指中   0~900
+      - "index_pip"       # ID13 下标12  食指指中   0~900
+      - "pinky_dip"       # ID14 下标13  小指指尖   0~900
+      - "ring_dip"        # ID15 下标14  无名指指尖 0~900
+      - "middle_dip"      # ID16 下标15  中指指尖   0~900
+      - "index_dip"       # ID17 下标16  食指指尖   0~900
+      - "thumb_rot"       # ID18 下标17  拇指旋转   0~1000
+      - "thumb_side"      # ID19 下标18  拇指侧摆   0~1000
+      - "thumb_dip"       # ID20 下标19  拇指指尖（与 ID22 对调）
+      - "thumb_pip"       # ID21 下标20  拇指指中   0~900
+      - "thumb_mcp"       # ID22 下标21  拇指掌指（与 ID20 对调）
+      - "wrist_1"         # ID23 下标22  手腕1      0~1000
+      - "wrist_2"         # ID24 下标23  手腕2      0~1000
+
+    topics:
+      - name: angle_control
+        registers:
+          write: ["angleSet"]
+          read: ["angleAct"]
+        command_topic: "/hand_left/angle_set"
+        state_topic: "/hand_left/angle_actual"
+
+      - name: force_control
+        registers:
+          write: ["forceSet"]
+          read: ["forceAct"]
+        command_topic: "/hand_left/force_set"
+        state_topic: "/hand_left/force_actual"
+
+      - name: speed_control
+        registers:
+          write: ["speedSet"]
+        command_topic: "/hand_left/speed_set"
+
+      - name: current_control
+        registers:
+          write: ["currentSet"]
+          read: ["currentAct"]
+        command_topic: "/hand_left/current_set"
+        state_topic: "/hand_left/current_actual"
+
+    services:
+      - register_name: "angleSet"
+        set_service_name: "/hand_left/set_angle"
+        is_write_register: true
+
+      - register_name: "forceSet"
+        set_service_name: "/hand_left/set_force"
+        is_write_register: true
+
+      - register_name: "speedSet"
+        set_service_name: "/hand_left/set_speed"
+        is_write_register: true
+
+      - register_name: "id"
+        set_service_name: "/hand_left/set_id"
+        is_write_register: true
+
+      - register_name: "baudRate"
+        set_service_name: "/hand_left/set_baudRate"
+        is_write_register: true
+
+      - register_name: "clearError"
+        set_service_name: "/hand_left/set_clearError"
+        is_write_register: true
+
+      - register_name: "resetPara"
+        set_service_name: "/hand_left/set_resetPara"
+        is_write_register: true
+
+      - register_name: "gestureForceClb"
+        set_service_name: "/hand_left/set_gestureForceClb"
+        is_write_register: true
+
+      - register_name: "defaultSpeedSet"
+        set_service_name: "/hand_left/set_defaultSpeed"
+        is_write_register: true
+
+      - register_name: "defaultForceSet"
+        set_service_name: "/hand_left/set_defaultForceSet"
+        is_write_register: true
+
+      - register_name: "mode"
+        set_service_name: "/hand_left/set_mode"
+        is_write_register: true
+
+      - register_name: "pause"
+        set_service_name: "/hand_left/set_pause"
+        is_write_register: true
+
+      - register_name: "stop"
+        set_service_name: "/hand_left/set_stop"
+        is_write_register: true
+
+      - register_name: "errorCode"
+        get_service_name: "/hand_left/get_errorCode"
+        is_write_register: false
+
+      - register_name: "status"
+        get_service_name: "/hand_left/get_status"
+        is_write_register: false
+
+      - register_name: "temp"
+        get_service_name: "/hand_left/get_temp"
+        is_write_register: false
+
+      - register_name: "currentAct"
+        get_service_name: "/hand_left/get_currentAct"
+        is_write_register: false
+
+      - register_name: "forceAct"
+        get_service_name: "/hand_left/get_forceAct"
+        is_write_register: false
+
+      - register_name: "angleAct"
+        get_service_name: "/hand_left/get_angleAct"
+        is_write_register: false

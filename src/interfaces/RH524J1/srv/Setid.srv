@@ -1,0 +1,7 @@
+# 设置设备通信 ID（对应寄存器 id）
+int32 hand_id
+int32 device_id
+---
+bool accepted
+
+string message

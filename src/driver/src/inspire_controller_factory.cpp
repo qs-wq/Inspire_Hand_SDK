@@ -4,6 +4,7 @@
 #include <yaml-cpp/yaml.h>
 #include <stdexcept>
 #include <fstream>
+#include <algorithm>
 
 std::vector<DeviceNodeConfig> InspireControllerFactory::loadDeviceNodeConfigs(
     const std::string& config_path,
@@ -29,6 +30,7 @@ std::vector<DeviceNodeConfig> InspireControllerFactory::loadDeviceNodeConfigs(
     for (const auto& device_node : node["device_nodes"]) {
         DeviceNodeConfig config = parseDeviceNodeConfig(device_node);
         config.interfaces_profile = profile;
+        ensureProfileDefaultServices(config);
         configs.push_back(config);
         logger->info("加载设备节点配置: {} profile={} (topics: {}, services: {})",
                      config.device_name, config.interfaces_profile,
@@ -37,6 +39,38 @@ std::vector<DeviceNodeConfig> InspireControllerFactory::loadDeviceNodeConfigs(
 
     logger->info("共加载 {} 个设备节点配置", configs.size());
     return configs;
+}
+
+void InspireControllerFactory::ensureProfileDefaultServices(DeviceNodeConfig& config) {
+    if (config.interfaces_profile != "RH524J1") {
+        return;
+    }
+
+    const auto hasRegister = [&config](const std::string& register_name) {
+        return std::any_of(config.services.begin(), config.services.end(),
+                           [&register_name](const ServiceConfig& sc) { return sc.register_name == register_name; });
+    };
+
+    const auto addIfMissing = [&](const std::string& register_name, const std::string& set_name,
+                                  const std::string& get_name, bool is_write) {
+        if (hasRegister(register_name)) {
+            return;
+        }
+        ServiceConfig sc;
+        sc.register_name = register_name;
+        sc.set_service_name = set_name;
+        sc.get_service_name = get_name;
+        sc.is_write_register = is_write;
+        config.services.push_back(sc);
+        getLogger()->info("[{}] yaml 未声明服务 {}，已按 RH524J1 默认补齐", config.device_name, register_name);
+    };
+
+    const std::string prefix = "/" + config.device_name + "/";
+    addIfMissing("forceSet", prefix + "set_force", "", true);
+    addIfMissing("speedSet", prefix + "set_speed", "", true);
+    addIfMissing("currentAct", "", prefix + "get_currentAct", false);
+    addIfMissing("forceAct", "", prefix + "get_forceAct", false);
+    addIfMissing("angleAct", "", prefix + "get_angleAct", false);
 }
 
 TopicConfig InspireControllerFactory::parseTopicConfig(const YAML::Node& node) {

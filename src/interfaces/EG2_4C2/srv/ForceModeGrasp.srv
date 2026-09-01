@@ -1,0 +1,8 @@
+# 持续夹取：设置 catchMode=1，再连续写入目标开口度0、速度和正力阈值
+int32 hand_id
+int32 speed
+int32 force
+---
+bool accepted
+
+string message

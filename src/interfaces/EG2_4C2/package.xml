@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>eg2_4c2_interfaces</name>
+  <version>1.0.0</version>
+  <description>ROS2 messages for Inspire EG2-4C2 electric gripper (Serial-CAN custom protocol, AA AA / 55 55 frame with 29-bit ExtId).</description>
+  <maintainer email="support@inspire-hand.com">Inspire Hand SDK Team</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <build_depend>rosidl_default_generators</build_depend>
+  <exec_depend>rosidl_default_runtime</exec_depend>
+  <member_of_group>rosidl_interface_packages</member_of_group>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

@@ -78,6 +78,9 @@ std::string ConfigLoader::getProtocolTypeString(const std::string& config_path) 
 }
 
 std::string ConfigLoader::interfacesProfileFromProtocolType(const std::string& protocol_type) {
+    if (protocol_type.rfind("RH524J1", 0) == 0) {
+        return "RH524J1";
+    }
     if (protocol_type.rfind("RH5DG2", 0) == 0) {
         return "RH5DG2";
     }
@@ -93,9 +96,12 @@ std::string ConfigLoader::interfacesProfileFromProtocolType(const std::string& p
     if (protocol_type.rfind("EG5CD1", 0) == 0) {
         return "EG5CD1";
     }
+    if (protocol_type.rfind("EG2_4C2", 0) == 0) {
+        return "EG2_4C2";
+    }
     throw std::runtime_error(
         "无法从协议类型 \"" + protocol_type +
-        "\" 推导 ROS 接口机型，请使用以 RH5DG2、RH56F1、RH56H1、RH56DFX 或 EG5CD1 为前缀的 protocol.type（如 RH56H1_485、RH56DFX_serial_can、RH5DG2_485）");
+        "\" 推导 ROS 接口机型，请使用以 RH524J1、RH5DG2、RH56F1、RH56H1、RH56DFX、EG5CD1 或 EG2_4C2 为前缀的 protocol.type（如 RH524J1_485、RH56H1_485、RH56DFX_serial_can、EG2_4C2_serial_can）");
 }
 
 // 日志配置方法

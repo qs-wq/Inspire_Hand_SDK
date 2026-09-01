@@ -3,6 +3,7 @@ project(inspire_serial_core CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # 是否构建独立示例可执行（非 ROS 路径）。在 colcon/ROS2 工作区中默认关闭即可，
 # 单独 `cmake -S src/inspire_serial_core` 时默认开启，便于无 ROS 环境快速验证。
@@ -28,6 +29,8 @@ add_library(inspire_serial_core SHARED
     src/RH56DFX_serial_can_protocol.cpp
     src/RH5DG2_485_protocol.cpp
     src/EG5CD1_485_protocol.cpp
+    src/EG2_4C2_serial_can_protocol.cpp
+    src/RH524J1_485_protocol.cpp
     src/RH56F1_canfd_protocol.cpp
     src/RH56H1_canfd_protocol.cpp
     src/RH5DG2_canfd_protocol.cpp

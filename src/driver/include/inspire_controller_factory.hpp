@@ -55,4 +55,6 @@ private:
     static TopicConfig parseTopicConfig(const YAML::Node& node);
     static ServiceConfig parseServiceConfig(const YAML::Node& node);
     static DeviceNodeConfig parseDeviceNodeConfig(const YAML::Node& node);
+    /** 若 yaml 缺项则按机型补齐（不覆盖已有项）；RH524J1 补 set_force/set_speed/get_currentAct 等 */
+    static void ensureProfileDefaultServices(DeviceNodeConfig& config);
 };

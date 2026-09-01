@@ -1,0 +1,7 @@
+# 单 int32 写寄存器（id / catchMode 等）
+int32 hand_id
+int32 value
+---
+bool accepted
+
+string message
