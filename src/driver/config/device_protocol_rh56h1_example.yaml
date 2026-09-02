@@ -1,0 +1,17 @@
+# RH56H1 485 示例配置（ROS2 节点 --device-config 指向本文件）
+protocol:
+  type: RH56H1_485
+
+devices:
+  - name: hand_left
+    port: /dev/ttyUSB0
+    baudrate: 115200
+    Hand_ID: 1
+
+logging:
+  level: ERROR
+  file: logs/hand_control.log
+  console: true
+  file_enable: true
+  max_file_size_mb: 10
+  max_files: 5

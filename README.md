@@ -8,7 +8,7 @@
 
 本项目是一个模块化的灵巧手控制系统，支持：
 - ✅ **多设备支持**：同时控制多个灵巧手设备（如左手、右手）
-- ✅ **多协议支持**：通过工厂模式支持多种通信协议（RH56F1_485、RH5DG2_485、EG5CD1_485 等）
+- ✅ **多协议支持**：通过工厂模式支持多种通信协议（RH56F1_485、**RH56H1_485** / **RH56H1_canfd**、**RH56DFX_serial_can**、RH5DG2_485、EG5CD1_485 等）
 - ✅ **动态配置**：通过 YAML 配置设备协议与 ROS2 话题/服务
 - ✅ **双通信模式**：支持话题（实时控制）和服务（按需调用）两种方式
 - ✅ **异步串口通信**：基于Boost.Asio的异步串口通信，支持超时和错误处理
@@ -39,6 +39,7 @@ serial_control/                        # = git 根 = colcon 工作区根
 │   └── interfaces/                    # ③ 接口包
 │       ├── RH5DG2/                    #    rh5dg2_interfaces（13 自由度）
 │       ├── RH56F1/                    #    rh56f1_interfaces（6 自由度）
+│       ├── RH56DFX/                   #    rh56dfx_interfaces（Serial-CAN 灵巧手）
 │       └── EG5CD1/                    #    eg5cd1_interfaces（EG-5CD1 夹爪）
 ├── docs/                              # 全部文档集中存放（架构/模块/依赖/协议规则/厂商手册）
 ├── scripts/                           # CI 辅助脚本（clang-format / clang-tidy 检查）
@@ -54,12 +55,15 @@ serial_control/                        # = git 根 = colcon 工作区根
 
 | 包名 | 作用 |
 |------|------|
-| **inspire_control_ros2** | 节点与驱动逻辑：`inspire_control_node`、`RegisterController`、`RH5DG2InterfaceAdapter` / `RH56F1InterfaceAdapter` / **`EG5CD1InterfaceAdapter`**，配置文件安装在 `share/inspire_control_ros2/config`。 |
+| **inspire_control_ros2** | 节点与驱动逻辑：`inspire_control_node`、`RegisterController`、`RH5DG2InterfaceAdapter` / `RH56F1InterfaceAdapter` / **`RH56H1InterfaceAdapter`** / **`RH56DFXInterfaceAdapter`** / **`EG5CD1InterfaceAdapter`**，配置文件安装在 `share/inspire_control_ros2/config`。 |
 | **rh5dg2_interfaces** | RH5DG2（13 自由度）专用 `msg`/`srv`，例如 `SetAngle1`、`GetAngleAct1`、`Setforce`、`Geterror` 等。 |
 | **rh56f1_interfaces** | RH56 系列（6 自由度）专用 `msg`/`srv`。 |
+| **rh56dfx_interfaces** | RH56DFX Serial-CAN 灵巧手专用 `msg`/`srv`，**服务集已与 RH5DG2/RH56F1 完全对齐**（`Setangle`/`Setforce`/`Setspeed`/`Setid`/`Setbaudrate`/`Setclearerror`/`Setactionseqindex`/`Geterror`/`Getstatus`/`Gettemp` 等底层已支持；`Setmode`/`Setpause`/`Setstop`/`Setresetpara`/`Setgestureforceclb`/`Setactionlibraryindex` 为**接口对齐占位**——厂商 CAN 文档暂未提供这些寄存器地址，调用返回 `not_supported`，补地址后即生效；另含 DFX 特有 `Setsave`）。电流话题 `SetCurrent1`/`GetCurrentAct1` 已映射至 CAN 寄存器 `currentSet`（1020 `CURRENT_LIMIT`）与 `currentAct`（1594 `CURRENT`）；`touchAct` 仍为占位（无触觉硬件）。 |
 | **eg5cd1_interfaces** | **因时 EG-5CD1** 电动夹爪 RS485：`GripperState`、`SetInt32`、`TriggerForHand`、`SetInt32Value`、`GetScalarForHand`；**组合服务** `ForceModeGrasp` / `ForceModeOpen` / `TouchModeGrasp` / `TouchModeOpen`（仅 `hand_id`+`speed`+`force`，内部按文档顺序经 `ioWriteSequence` 在设备 `DeviceWorker` 上**原子串行**写寄存器，见下）。 |
 
-在 **`device_protocol_config.yaml`** 中设置 **`protocol.type`**（如 **`RH5DG2_485`**、**`RH56F1_485`**、**`EG5CD1_485`** 等），启动时自动推导 **`interfaces_profile`**（`RH5DG2` / `RH56F1` / **`EG5CD1`**）并创建对应适配器。
+在 **`device_protocol_config.yaml`** 中设置 **`protocol.type`**（如 **`RH5DG2_485`**、**`RH56F1_485`**、**`RH56H1_485`** / **`RH56H1_canfd`**、**`RH56DFX_serial_can`**、**`EG5CD1_485`** 等），启动时自动推导 **`interfaces_profile`**（`RH5DG2` / `RH56F1` / **`RH56H1`** / **`RH56DFX`** / **`EG5CD1`**）并创建对应适配器。
+
+**RH56H1** 与 **RH56F1** 寄存器与帧格式相同，支持 **485** 与 **CAN-FD** 两种 `protocol.type`；ROS 接口复用 **`rh56f1_interfaces`**。触觉传感器类型不同，后续在 `RH56H1_485_Protocol` / `RH56H1_canfd_Protocol` 及 `RH56H1_interface_adapter` 中单独适配。
 
 ### EG-5CD1 夹爪全链路说明
 
@@ -245,7 +249,7 @@ dmesg | grep ttyUSB
 - `python3-colcon-common-extensions` - Colcon构建工具扩展
 - `python3-rosdep` - ROS依赖管理工具（可选）
 
-**本仓库 ROS2 工作区包（源码编译，非 apt）**：`rh5dg2_interfaces`、`rh56f1_interfaces`、`inspire_control_ros2`，详见上文「ROS2 接口说明」与 `docs/依赖清单.md`。
+**本仓库 ROS2 工作区包（源码编译，非 apt）**：`rh5dg2_interfaces`、`rh56f1_interfaces`、`rh56dfx_interfaces`、`eg5cd1_interfaces`、`inspire_control_ros2`，详见上文「ROS2 接口说明」与 `docs/依赖清单.md`。
 
 **第三方库依赖**：
 - `libboost-system-dev` - Boost系统库（包含Boost.Asio）
@@ -384,9 +388,49 @@ source install/setup.bash
 裸库是纯 CMake 包，可脱离 ROS 单独构建（含 `serial_hand_control_node` 示例）：
 
 ```bash
-cd /home/ubuntu/serial_control/src/inspire_serial_core
+cd src/inspire_serial_core
 cmake -S . -B build && cmake --build build -j
 ```
+
+#### 纯 C++ 控制灵巧手（无 ROS）
+
+同一程序 `serial_hand_control_node` 通过 YAML 切换机型，**运行时**指定角度，无需改源码重编译：
+
+| 参数 | 说明 |
+|------|------|
+| `--config` / `-c` | 设备协议 YAML（如 `config/device_protocol_rh56dfx_example.yaml`） |
+| `--angles v1,v2,...` | 固定角度，逗号分隔（RH56DFX/RH56F1/RH56H1=6 个，RH5DG2=13 个） |
+| `--angles-file <path>` | 从文件读取一行角度（逗号或空格分隔） |
+| `--demo` | 自动开合演示（默认，未指定 `--angles` 时） |
+| `--read-only` | 只读 `angleAct`，不写 `angleSet` |
+
+```bash
+cd src/inspire_serial_core
+
+# 自动演示（默认）
+./build/serial_hand_control_node --config config/device_protocol_rh56dfx_example.yaml
+
+# 握拳：六个关节固定角度（RH56DFX）
+./build/serial_hand_control_node -c config/device_protocol_rh56dfx_example.yaml \
+  --angles 1000,1000,1000,1000,1200,1800
+
+# 从文件读角度（方便脚本反复调用）
+echo "1800,1800,1800,1800,1350,1800" > /tmp/hand_pose.txt
+./build/serial_hand_control_node -c config/device_protocol_rh56dfx_example.yaml \
+  --angles-file /tmp/hand_pose.txt
+
+# 只读当前角度
+./build/serial_hand_control_node -c config/device_protocol_rh56dfx_example.yaml --read-only
+```
+
+快捷脚本（机型别名 + 透传额外参数）：
+
+```bash
+./scripts/run_cpp_hand.sh rh56dfx --angles 1000,1000,1000,1000,1200,1800
+./scripts/run_cpp_hand.sh rh56dfx --read-only
+```
+
+> 需要 ROS 话题/服务控制时，请使用 `inspire_control_ros2` 节点；纯 C++ 版适合无 ROS 环境或快速真机验证。
 
 #### 运行单元测试
 
@@ -418,7 +462,7 @@ ctest --test-dir build --output-on-failure
 
 | 步骤 | 内容 |
 |------|------|
-| `colcon build` | 编译整个工作区（5 个包） |
+| `colcon build` | 编译整个工作区（6 个包，含 RH56DFX 接口包） |
 | `colcon test` | 运行 `inspire_serial_core` 的 41 个 gtest 用例 |
 | `clang-format` | 校验 C++ 代码格式（规则见根目录 `.clang-format`） |
 | `clang-tidy` | 对核心库与驱动包做静态分析（规则见 `.clang-tidy`） |
@@ -434,7 +478,7 @@ ctest --test-dir build --output-on-failure
 
 ### 4. 配置设备
 
-编辑 **`src/driver/config/device_protocol_config.yaml`**（或与 launch 一致的 `--device-config` 路径）：
+编辑 **`src/driver/config/device_protocol_config.yaml`**（或与 launch 一致的 `--device-config` 路径）。`protocol.type` 决定机型（仓库内默认值为 `RH56DFX_serial_can`，下例以 `RH56F1_485` 演示，按需替换为 `RH5DG2_485` / `RH56DFX_serial_can` / `EG5CD1_485` 等）：
 
 ```yaml
 protocol:
@@ -464,7 +508,7 @@ ros2 launch inspire_control_ros2 inspire_control_multi_device.launch.py
 
 ### 6. 使用示例
 
-以下示例假定 **`protocol.type`** 为 RH5DG2 系列（**13** 个关节）。若为 **RH56F1** 系列，请将包名改为 **`rh56f1_interfaces`**，且 **`joint_values` 长度为 6**。也可用 `ros2 interface show <包名>/<类型>` 查看字段。
+以下示例假定 **`protocol.type`** 为 RH5DG2 系列（**13** 个关节）。若为 **RH56F1** / **RH56H1** 系列，请将包名改为 **`rh56f1_interfaces`**，且 **`joint_values` 长度为 6**。也可用 `ros2 interface show <包名>/<类型>` 查看字段。
 
 **`hand_id` 与节点绑定**：入站 Topic/Service 中的 **`hand_id`** 须与 **`device_protocol_config.yaml`** 里该设备的 **`Hand_ID`** 一致，否则节点会拒绝写寄存器（`accepted: false`）或忽略订阅回调；**`hand_id: 0`** 视为未指定，仍会被本节点接受（兼容不指定id）。
 
@@ -515,13 +559,6 @@ ros2 service call /hand_left/set_id rh5dg2_interfaces/srv/Setid \
 
 📖 **[docs/模块使用说明.md](docs/模块使用说明.md)**
 
-包含：
-- 各模块功能简介
-- 主要类和函数说明
-- 配置参数说明
-- 使用示例
-- 数据流和通信方式
-
 ### 依赖清单
 
 📖 **[docs/依赖清单.md](docs/依赖清单.md)**
@@ -535,7 +572,7 @@ ros2 service call /hand_left/set_id rh5dg2_interfaces/srv/Setid \
 
 ### 协议格式说明
 
-📖 **[docs/RH56F1_485协议格式说明.md](docs/RH56F1_485协议格式说明.md)**（另见 `docs/RH5DG2_485协议格式说明.md`、`docs/EG5CD1协议格式说明.md`、`docs/EG5CD1_ROS2_API.md`）
+📖 **[docs/RH56F1_485协议格式说明.md](docs/RH56F1_485协议格式说明.md)**（另见 `docs/RH5DG2_485协议格式说明.md`、`docs/RH56DFX_Serial_CAN协议解析.md`、`docs/夹爪485寄存器规则.md`、`docs/EG5CD1协议格式说明.md`、`docs/EG5CD1_ROS2_API.md`）
 
 包含：
 - 读写请求格式
@@ -695,7 +732,7 @@ device_nodes:
       frame_id: "hand_left"
     joint_names:
       - "hand_left/joint_0"
-      # ... 共 13 项（RH5DG2）或 6 项（RH56F1）
+      # ... 共 13 项（RH5DG2）或 6 项（RH56F1 / RH56H1）
 
     topics:
       - name: angle_control
@@ -890,5 +927,6 @@ export PKG_CONFIG_PATH=/usr/lib/pkgconfig:/usr/local/lib/pkgconfig
 
 ---
 
-**文档版本**：v1.1
-**最后更新**：2026-06-17
+**文档版本**：v1.2  
+**上游基线**：作者 `jsadin/Inspire_Hand_SDK` v1.1（2026-06-17，提交 `8da3b29`）已全部合并  
+**最后更新**：2026-06-23（纯 C++ 节点支持 `--angles` 运行时控制）

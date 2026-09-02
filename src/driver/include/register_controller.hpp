@@ -31,6 +31,9 @@ public:
     void start();
     void stop();
 
+    /** RH56DFX 等机型：start() 前按 YAML initial_registers 写入默认 speed/force */
+    void applyInitialRegisters();
+
     const DeviceNodeConfig& getConfig() const { return config_; }
 
     // --- IRegisterIoBackend ---

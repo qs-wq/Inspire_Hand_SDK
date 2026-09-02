@@ -21,7 +21,7 @@ public:
     static std::shared_ptr<Protocol> createProtocolFromConfig(const std::string& config_path);
     /** 读取 device_protocol_config.yaml 中的 protocol.type（不实例化协议） */
     static std::string getProtocolTypeString(const std::string& config_path);
-    /** 将 protocol.type（如 RH5DG2_485）映射为 ROS 接口机型 RH5DG2 / RH56F1 / EG5CD1 */
+    /** 将 protocol.type（如 RH5DG2_485）映射为 ROS 接口机型 RH5DG2 / RH56F1 / RH56H1 / EG5CD1 */
     static std::string interfacesProfileFromProtocolType(const std::string& protocol_type);
     static void configureLogging(const std::string& config_path);
 

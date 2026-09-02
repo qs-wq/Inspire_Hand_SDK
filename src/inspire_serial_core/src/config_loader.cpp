@@ -81,15 +81,21 @@ std::string ConfigLoader::interfacesProfileFromProtocolType(const std::string& p
     if (protocol_type.rfind("RH5DG2", 0) == 0) {
         return "RH5DG2";
     }
+    if (protocol_type.rfind("RH56H1", 0) == 0) {
+        return "RH56H1";
+    }
     if (protocol_type.rfind("RH56F1", 0) == 0) {
         return "RH56F1";
+    }
+    if (protocol_type.rfind("RH56DFX", 0) == 0) {
+        return "RH56DFX";
     }
     if (protocol_type.rfind("EG5CD1", 0) == 0) {
         return "EG5CD1";
     }
     throw std::runtime_error(
         "无法从协议类型 \"" + protocol_type +
-        "\" 推导 ROS 接口机型，请使用以 RH5DG2、RH56F1 或 EG5CD1 为前缀的 protocol.type（如 RH5DG2_485、EG5CD1_485）");
+        "\" 推导 ROS 接口机型，请使用以 RH5DG2、RH56F1、RH56H1、RH56DFX 或 EG5CD1 为前缀的 protocol.type（如 RH56H1_485、RH56DFX_serial_can、RH5DG2_485）");
 }
 
 // 日志配置方法

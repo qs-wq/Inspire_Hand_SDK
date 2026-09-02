@@ -65,6 +65,12 @@ venv/
 .DS_Store
 Thumbs.db
 
+# --- 历史推送/同步用的临时 Git 副本（主目录已是正式仓库，可删这些文件夹）---
+.safe_push_repo/
+.push_sync_repo/
+.push_tmp_repo/
+.git_push_repo/
+
 # ===========================================================================
 # 注意：
 # 1) .cursor/rules/ 等规则文件需要入库，故不忽略整个 .cursor/。

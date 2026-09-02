@@ -51,10 +51,37 @@ void RegisterController::initialize() {
     logger->info("[{}] 设备节点初始化完成", get_name());
 }
 
+void RegisterController::applyInitialRegisters() {
+    if (config_.initial_registers.empty()) {
+        return;
+    }
+
+    auto logger = getLogger();
+    for (const auto& initial : config_.initial_registers) {
+        try {
+            const IoError err = worker_
+                                    ->submit([this, initial]() {
+                                        return writeRegister(initial.register_name, initial.values);
+                                    })
+                                    .get();
+            if (isOk(err)) {
+                logger->info("[{}] 启动初始写入 {} 成功 ({} 个值)", get_name(), initial.register_name,
+                             initial.values.size());
+            } else {
+                logger->warn("[{}] 启动初始写入 {} 失败: {}", get_name(), initial.register_name, toString(err));
+            }
+        } catch (const std::exception& e) {
+            logger->warn("[{}] 启动初始写入 {} 异常: {}", get_name(), initial.register_name, e.what());
+        }
+    }
+}
+
 void RegisterController::start() {
     if (running_.load()) {
         return;
     }
+
+    applyInitialRegisters();
 
     running_.store(true);
 

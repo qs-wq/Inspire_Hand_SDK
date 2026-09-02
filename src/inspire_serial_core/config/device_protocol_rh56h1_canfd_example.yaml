@@ -1,0 +1,17 @@
+# RH56H1 CAN-FD 示例配置（寄存器与 485 相同，帧长按 CAN-FD 规则补齐/拆帧）
+protocol:
+  type: RH56H1_canfd
+
+devices:
+  - name: hand_left
+    port: /dev/ttyUSB0
+    baudrate: 115200
+    Hand_ID: 1
+
+logging:
+  level: ERROR
+  file: logs/hand_control.log
+  console: true
+  file_enable: true
+  max_file_size_mb: 10
+  max_files: 5

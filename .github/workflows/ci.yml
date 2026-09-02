@@ -46,6 +46,7 @@ jobs:
           colcon build \
             --cmake-args \
               -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+              -DBUILD_TESTING=ON \
               -DINSPIRE_SERIAL_CORE_BUILD_EXAMPLES=OFF
 
       - name: colcon test
@@ -54,7 +55,9 @@ jobs:
           set -eo pipefail
           source /opt/ros/humble/setup.bash
           colcon test --packages-select inspire_serial_core
-          colcon test-result --verbose
+          colcon test-result --verbose | tee /tmp/colcon_test_result.txt
+          # 防止“0 tests”被误判为通过：至少要发现 1 个测试
+          rg "Summary:\s+[1-9][0-9]* tests," /tmp/colcon_test_result.txt
 
       - name: clang-format
         run: |
